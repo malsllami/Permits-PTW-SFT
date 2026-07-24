@@ -1,0 +1,85 @@
+* { box-sizing: border-box; }
+
+html, body, #root {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  direction: rtl;
+  text-align: right;
+  font-family: 'Tahoma', 'Segoe UI', system-ui, sans-serif;
+  background: var(--color-background);
+  color: var(--color-text);
+  overflow-x: hidden;
+}
+
+.app-card {
+  background: var(--color-surface);
+  border-radius: var(--radius-lg);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.08);
+  padding: 20px;
+}
+
+input, select, textarea, button {
+  border-radius: var(--radius-md);
+  font-family: inherit;
+}
+
+input, select, textarea {
+  border: 1px solid #d5d9e0;
+  padding: 10px 12px;
+  font-size: 14px;
+}
+
+button {
+  cursor: pointer;
+  border: none;
+  padding: 10px 18px;
+  font-weight: bold;
+}
+
+button.primary {
+  background: var(--color-primary);
+  color: #fff;
+}
+
+button.secondary {
+  background: var(--color-secondary);
+  color: #fff;
+}
+
+.table-scroll-wrap {
+  overflow-x: auto;
+  border-radius: var(--radius-md);
+}
+
+table.app-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+table.app-table thead th {
+  position: sticky;
+  top: 0;
+  background: var(--color-primary);
+  color: #fff;
+  font-weight: bold;
+  font-size: 12px;
+  text-align: center;
+  padding: 10px;
+  z-index: 1;
+}
+
+table.app-table td {
+  text-align: center;
+  font-size: 12px;
+  font-weight: bold;
+  padding: 8px;
+  border-bottom: 1px solid #eef0f3;
+}
+
+@media print {
+  .no-print { display: none !important; }
+  body { background: #fff; }
+}

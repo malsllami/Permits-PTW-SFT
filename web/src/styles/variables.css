@@ -1,0 +1,23 @@
+/* قيم افتراضية أولية فقط - تُستبدل فعليًا بقيم "الإعدادات العامة" > "ألوان النظام" عند الإقلاع (settingsService.applyColorsFromSettings) */
+:root {
+  --color-primary: #143A6B;
+  --color-primary-light: #1E7FC2;
+  --color-secondary: #2E9E49;
+  --color-accent: #0FA398;
+  --color-text: #2B2F36;
+  --color-warning: #E8A93B;
+  --color-error: #D64545;
+  --color-success: #3FBE63;
+  --color-surface: #FFFFFF;
+  --color-background: #F5F7FA;
+  --radius-md: 14px;
+  --radius-lg: 20px;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --color-surface: #1B1F27;
+    --color-background: #11141A;
+    --color-text: #E8EAED;
+  }
+}
