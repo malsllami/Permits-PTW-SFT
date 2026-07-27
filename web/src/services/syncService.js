@@ -1,7 +1,5 @@
 import { DATA_VERSIONS_STORAGE_KEY } from '../config/apiConfig.js';
 
-const listeners = new Set();
-
 function getLocalVersions() {
   const raw = localStorage.getItem(DATA_VERSIONS_STORAGE_KEY);
   if (!raw) return {};
@@ -17,27 +15,21 @@ function setLocalVersions(versions) {
 }
 
 /**
- * تُستدعى بعد كل استجابة API - تقارن أرقام الإصدار الواردة من السيرفر بالنسخة المحلية،
- * وتُبلغ أي مستمعين (useSyncedResource) بأن جدولًا معينًا تغيّر ليعيدوا الجلب فقط عند الحاجة.
+ * تُستدعى بعد كل استجابة API - تقارن أرقام الإصدار الواردة من السيرفر بالنسخة المحلية
+ * وتُحدِّثها في التخزين المحلي (الأساس لدعم مزامنة تزايدية مستقبلية بدل إعادة تحميل كل شيء).
  */
 export function applyServerDataVersions(serverVersions) {
   const local = getLocalVersions();
-  const changedTables = [];
+  let changed = false;
 
   Object.keys(serverVersions).forEach((table) => {
     if (local[table] !== serverVersions[table]) {
-      changedTables.push(table);
+      changed = true;
       local[table] = serverVersions[table];
     }
   });
 
-  if (changedTables.length > 0) {
+  if (changed) {
     setLocalVersions(local);
-    listeners.forEach((cb) => cb(changedTables));
   }
-}
-
-export function onDataVersionsChanged(callback) {
-  listeners.add(callback);
-  return () => listeners.delete(callback);
 }

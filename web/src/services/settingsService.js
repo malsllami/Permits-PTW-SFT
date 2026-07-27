@@ -25,7 +25,14 @@ export function applyColorsFromSettings(settingsRows) {
     'TEXT COLOR': '--color-text',
     'WARNING COLOR': '--color-warning',
     'ERROR COLOR': '--color-error',
-    'SUCCESS COLOR': '--color-success'
+    'SUCCESS COLOR': '--color-success',
+    'NAVBAR COLOR': '--color-navbar',
+    'WORK DATA BG COLOR': '--color-bg-work',
+    'SAFETY BG COLOR': '--color-bg-safety',
+    'SOURCE BG COLOR': '--color-bg-source',
+    'RECEIVER BG COLOR': '--color-bg-receiver',
+    'CLOSING BG COLOR': '--color-bg-closing',
+    'PERMIT NUMBER BG COLOR': '--color-bg-permit-number'
   };
   colorGroup.forEach((s) => {
     const cssVar = map[s.key];

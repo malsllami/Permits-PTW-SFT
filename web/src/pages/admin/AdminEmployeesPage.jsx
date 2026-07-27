@@ -1,11 +1,17 @@
 import React, { useEffect, useState } from 'react';
 import { listEmployees, createEmployee, updateEmployee, disableEmployee, deleteEmployee, searchEmployees } from '../../services/employeesService.js';
 import StickyHeaderTable from '../../components/common/StickyHeaderTable.jsx';
+import { convertArabicDigitsToEnglish, sanitizeDigitsOnly } from '../../hooks/useArabicIndicDigits.js';
+import { rolesToList } from '../../utils/roles.js';
 
 const emptyForm = {
   employeeId: '', fullName: '', mobile: '', email: '', role: 'مصدر', department: '', workEntity: '',
   workCardExpiry: '', issuerCardExpiry: '', receiverCardExpiry: ''
 };
+
+// "الدور" يدعم أكثر من صلاحية معًا لنفس الموظف (مصدر + مستلم) مفصولة بـ "، " - نفس الفاصل
+// المستخدم في نقاط العزل/مفاتيح المصدر بالتصريح، للاتساق. راجع gas/Employees.gs::employeeHasRole_.
+const ROLE_OPTIONS = ['مصدر', 'مستلم', 'مدير'];
 
 export default function AdminEmployeesPage() {
   const [employees, setEmployees] = useState([]);
@@ -38,12 +44,19 @@ export default function AdminEmployeesPage() {
     }
   };
 
+  // حقول <input type="date"> تتطلب صيغة "YYYY-MM-DD" حصرًا - القيمة القادمة من الخادم قد
+  // تكون نص تاريخ/وقت ISO كامل (مثل "2028-08-12T21:00:00.000Z")، فيرفضها حقل التاريخ
+  // ويظهر فارغًا رغم وجود قيمة فعلية، مما قد يؤدي لحذف التاريخ عن طريق الخطأ عند الحفظ.
+  const toDateInputValue = (value) => (value ? String(value).slice(0, 10) : '');
+
   const handleEdit = (emp) => {
     setEditingId(emp.employeeId);
     setForm({
       employeeId: emp.employeeId, fullName: emp.fullName, mobile: emp.mobile, email: emp.email,
       role: emp.role, department: emp.department, workEntity: emp.workEntity,
-      workCardExpiry: emp.workCardExpiry, issuerCardExpiry: emp.issuerCardExpiry, receiverCardExpiry: emp.receiverCardExpiry
+      workCardExpiry: toDateInputValue(emp.workCardExpiry),
+      issuerCardExpiry: toDateInputValue(emp.issuerCardExpiry),
+      receiverCardExpiry: toDateInputValue(emp.receiverCardExpiry)
     });
   };
 
@@ -57,17 +70,28 @@ export default function AdminEmployeesPage() {
       <div className="app-card" style={{ marginBottom: 16 }}>
         <h3 style={{ fontSize: 14 }}>{editingId ? 'تعديل موظف' : 'إضافة موظف جديد'}</h3>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 8 }}>
-          <input placeholder="الرقم الوظيفي" value={form.employeeId} disabled={!!editingId} onChange={(e) => setForm((f) => ({ ...f, employeeId: e.target.value }))} />
-          <input placeholder="الاسم بالكامل" value={form.fullName} onChange={(e) => setForm((f) => ({ ...f, fullName: e.target.value }))} />
-          <input placeholder="رقم الجوال" value={form.mobile} onChange={(e) => setForm((f) => ({ ...f, mobile: e.target.value }))} />
-          <input placeholder="البريد الإلكتروني" value={form.email} onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))} />
-          <select value={form.role} onChange={(e) => setForm((f) => ({ ...f, role: e.target.value }))}>
-            <option value="مصدر">مصدر</option>
-            <option value="مستلم">مستلم</option>
-            <option value="مدير">مدير</option>
-          </select>
-          <input placeholder="القسم" value={form.department} onChange={(e) => setForm((f) => ({ ...f, department: e.target.value }))} />
-          <input placeholder="جهة العمل" value={form.workEntity} onChange={(e) => setForm((f) => ({ ...f, workEntity: e.target.value }))} />
+          <input placeholder="الرقم الوظيفي" value={form.employeeId} disabled={!!editingId} onChange={(e) => setForm((f) => ({ ...f, employeeId: sanitizeDigitsOnly(e.target.value) }))} />
+          <input placeholder="الاسم بالكامل" value={form.fullName} onChange={(e) => setForm((f) => ({ ...f, fullName: convertArabicDigitsToEnglish(e.target.value) }))} />
+          <input placeholder="رقم الجوال" value={form.mobile} onChange={(e) => setForm((f) => ({ ...f, mobile: sanitizeDigitsOnly(e.target.value) }))} />
+          <input placeholder="البريد الإلكتروني" value={form.email} onChange={(e) => setForm((f) => ({ ...f, email: convertArabicDigitsToEnglish(e.target.value) }))} />
+          <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap', fontSize: 13, fontWeight: 'bold' }}>
+            {ROLE_OPTIONS.map((r) => (
+              <label key={r} style={{ display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer' }}>
+                <input
+                  type="checkbox"
+                  checked={rolesToList(form.role).includes(r)}
+                  onChange={() => setForm((f) => {
+                    const list = rolesToList(f.role);
+                    const next = list.includes(r) ? list.filter((x) => x !== r) : [...list, r];
+                    return { ...f, role: next.join('، ') };
+                  })}
+                />
+                {r}
+              </label>
+            ))}
+          </div>
+          <input placeholder="القسم" value={form.department} onChange={(e) => setForm((f) => ({ ...f, department: convertArabicDigitsToEnglish(e.target.value) }))} />
+          <input placeholder="جهة العمل" value={form.workEntity} onChange={(e) => setForm((f) => ({ ...f, workEntity: convertArabicDigitsToEnglish(e.target.value) }))} />
           <label style={{ fontSize: 11 }}>انتهاء بطاقة العمل<input type="date" value={form.workCardExpiry} onChange={(e) => setForm((f) => ({ ...f, workCardExpiry: e.target.value }))} /></label>
           <label style={{ fontSize: 11 }}>انتهاء بطاقة المصدر<input type="date" value={form.issuerCardExpiry} onChange={(e) => setForm((f) => ({ ...f, issuerCardExpiry: e.target.value }))} /></label>
           <label style={{ fontSize: 11 }}>انتهاء بطاقة المستلم<input type="date" value={form.receiverCardExpiry} onChange={(e) => setForm((f) => ({ ...f, receiverCardExpiry: e.target.value }))} /></label>
@@ -80,7 +104,7 @@ export default function AdminEmployeesPage() {
       </div>
 
       <div className="app-card">
-        <input placeholder="بحث عن موظف" value={query} onChange={(e) => setQuery(e.target.value)} style={{ marginBottom: 10 }} />
+        <input placeholder="بحث عن موظف" value={query} onChange={(e) => setQuery(convertArabicDigitsToEnglish(e.target.value))} style={{ marginBottom: 10 }} />
         <StickyHeaderTable
           columns={columns}
           rows={employees}

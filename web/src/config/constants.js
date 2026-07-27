@@ -1,7 +1,6 @@
 // أسماء حقول/مفاتيح API فقط - وليست قوائم بيانات أعمال (تلك تُجلب من الإعدادات العامة عبر settingsService).
 
 export const PERMIT_TYPE = { PTW: 'PTW', SFT: 'SFT' };
-export const VOLTAGE_LEVEL = { MV: 'M.V', LV: 'L.V' };
 
 export const ACCESS_MODE = {
   READ_ONLY_UNREGISTERED: 'READ_ONLY_UNREGISTERED',

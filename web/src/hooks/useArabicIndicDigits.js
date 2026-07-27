@@ -10,9 +10,8 @@ export function sanitizeDigitsOnly(value) {
   return convertArabicDigitsToEnglish(value).replace(/[^0-9]/g, '');
 }
 
-export function useArabicIndicDigitsHandler(onChange) {
-  return (e) => {
-    const sanitized = sanitizeDigitsOnly(e.target.value);
-    onChange(sanitized);
-  };
+/** يحوّل الأرقام العربية إلى إنجليزية، ويحوّل أي حرف إنجليزي صغير إلى كبير فور الكتابة. */
+export function normalizeMixedInput(value) {
+  if (value === null || value === undefined) return value;
+  return convertArabicDigitsToEnglish(value).toUpperCase();
 }

@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { listOperations } from '../../services/settingsService.js';
 import StickyHeaderTable from '../../components/common/StickyHeaderTable.jsx';
+import { formatDateTimeShort } from '../../hooks/useHijriGregorianDate.js';
 
 export default function AdminOperationsLogPage() {
   const [operations, setOperations] = useState([]);
@@ -28,7 +29,7 @@ export default function AdminOperationsLogPage() {
             <td>{op['الدور']}</td>
             <td>{op['GPS']}</td>
             <td>{op['عنوان IP']}</td>
-            <td>{op['التاريخ والوقت']}</td>
+            <td>{formatDateTimeShort(op['التاريخ والوقت'])}</td>
           </>
         )}
       />

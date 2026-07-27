@@ -1,14 +1,84 @@
 * { box-sizing: border-box; }
 
+/* يمنع متصفحات الجوال من فرض الوضع الداكن التلقائي (Forced Dark Mode) على الصفحة -
+   بدون هذا التصريح، بعض النصوص تُعكس ألوانها تلقائيًا بينما الخلفيات المُحدَّدة صراحة
+   تبقى كما هي، فتظهر بعض البيانات باهتة/غير واضحة رغم أن كود الموقع نفسه لم يتغيّر. */
+:root { color-scheme: light; }
+
 html, body, #root {
   height: 100%;
   margin: 0;
 }
 
+/* نقاط انكسار الاستجابة (Breakpoints) - جوال (الافتراضي بلا استعلام) / تابلت 768px /
+   لابتوب 1024px / شاشات كبيرة 1440px. القاعدة الثابتة: لا تُكبَّر مقاسات العناصر نفسها
+   (أزرار/حقول تبقى بنفس الارتفاع دائمًا) - المتغيّر فقط عدد الأعمدة والعرض الأقصى للحاويات
+   والمسافات، عبر أصناف مساعدة تُستخدم في الصفحات المُصمَّمة Responsive بالكامل (تسجيل
+   الدخول/الرئيسية/لوحة المدير/شاشة العرض النهائية) - أما شاشات الإدخال والاستلام والإغلاق
+   فتبقى قريبة من شكل الجوال دائمًا (Mobile First) بلا تغيير هيكلي حسب القرار المعتمد. */
+.responsive-shell {
+  max-width: 440px;
+  margin: 0 auto;
+}
+@media (min-width: 768px) {
+  .responsive-shell { max-width: 700px; }
+}
+@media (min-width: 1024px) {
+  .responsive-shell { max-width: 960px; }
+}
+@media (min-width: 1440px) {
+  .responsive-shell { max-width: 1200px; }
+}
+
+/* شبكة بطاقات تتحول تلقائيًا من عمود واحد (جوال) إلى عمودين (تابلت) إلى أربعة (لابتوب
+   فأعلى) - للبطاقات الصغيرة المتماثلة (إحصائيات/حقول بيانات عمل بسيطة). */
+/* minmax(0, 1fr) لا "1fr" فقط في كل مكان - وإلا يفرض أي محتوى غير قابل للالتفاف عرضًا أدنى
+   أكبر من العمود المتاح، فيدفع الشبكة كاملة أعرض من الشاشة (قص أفقي غير قابل للتمرير خصوصًا
+   في اتجاه RTL مع overflow-x:hidden). */
+.responsive-grid-cards {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 12px;
+}
+@media (min-width: 768px) {
+  .responsive-grid-cards { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+}
+@media (min-width: 1024px) {
+  .responsive-grid-cards { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+}
+
+/* عمودان متجاوران (مثل بيانات المصدر/المستلم) من عرض اللابتوب فأعلى فقط - عمود واحد قبل
+   ذلك (جوال/تابلت). */
+.responsive-grid-2col-lg {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 16px;
+}
+@media (min-width: 1024px) {
+  .responsive-grid-2col-lg { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+}
+
+/* نظام أيقونات موحّد واحد فقط (Material Symbols Rounded) لكل الموقع - بدل خلط Emoji/رموز
+   متفاوتة الأسلوب. الاستخدام عبر مكوّن Icon.jsx (نص المحتوى = اسم الأيقونة البرمجي). */
+.material-symbols-rounded {
+  font-family: 'Material Symbols Rounded';
+  font-weight: normal;
+  font-style: normal;
+  line-height: 1;
+  letter-spacing: normal;
+  text-transform: none;
+  white-space: nowrap;
+  word-wrap: normal;
+  direction: ltr;
+  display: inline-block;
+  font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+}
+
 body {
   direction: rtl;
   text-align: right;
-  font-family: 'Tahoma', 'Segoe UI', system-ui, sans-serif;
+  /* Inter أولًا لأرقام/نصوص إنجليزية، ثم IBM Plex Sans Arabic للعربي (قسم 14 بدليل التصميم) */
+  font-family: var(--font-en);
   background: var(--color-background);
   color: var(--color-text);
   overflow-x: hidden;
@@ -17,17 +87,38 @@ body {
 .app-card {
   background: var(--color-surface);
   border-radius: var(--radius-lg);
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.08);
+  box-shadow: var(--shadow-card);
   padding: 20px;
 }
 
+/* مسافة قياسية موحّدة (16px) بين البطاقات المتتالية - لا تتعارض مع أي "marginTop" مُحدَّد
+   صراحة على بطاقة بعينها (النمط الخاص بالعنصر نفسه يبقى له الأولوية دائمًا). */
+.app-card + .app-card {
+  margin-top: 16px;
+}
+
 input, select, textarea, button {
-  border-radius: var(--radius-md);
   font-family: inherit;
 }
 
+/* مربع الإدخال ونصف قطره منفصل عن نصف قطر الزر (12px مقابل 14px حسب دليل التصميم). */
 input, select, textarea {
-  border: 1px solid #d5d9e0;
+  border-radius: var(--radius-md);
+}
+
+button {
+  border-radius: var(--radius-sm);
+}
+
+/* ارتفاع قياسي موحّد لحقول الإدخال (52px حسب قسم 13 بدليل التصميم) - يضمن مساحة لمس مريحة
+   وثابتة على الجوال. لا يُطبَّق على الأزرار عمومًا لأن بعضها صغير عمدًا (أزرار حذف Badge مثلًا
+   داخل حقل نقاط العزل)، فتوحيد ارتفاعها جميعًا كان سيكسر تلك العناصر الصغيرة بصريًا. */
+input, select, textarea {
+  min-height: var(--size-input-height);
+}
+
+input, select, textarea {
+  border: 1px solid var(--color-border);
   padding: 10px 12px;
   font-size: 14px;
 }
@@ -39,14 +130,47 @@ button {
   font-weight: bold;
 }
 
+/* حالة "معطّل" مرئية بوضوح لكل الأزرار - بدونها يبدو الزر نشطًا تمامًا فيُضغط عليه المستخدم
+   متكررًا معتقدًا أنه لا يستجيب، بينما هو فعليًا معطّل بانتظار شرط (توقيع/GPS/تحميل). */
+button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* زر تسجيل الدخول تحديدًا - لون أساسي مخصّص للشاشة (Hover/Active أغمق قليلًا) بدل الاعتماد
+   على button.primary العام، لأن شاشة الدخول لا ترتبط بأي دور (لا أحمر مصدر ولا أصفر مستلم). */
+.login-submit-btn {
+  background: #173F7A;
+}
+.login-submit-btn:hover:not(:disabled),
+.login-submit-btn:active:not(:disabled) {
+  background: #0E4B92;
+}
+
+/* مؤشر تحميل صغير دوّار - لحالة "جارٍ التحقق..." بزر تسجيل الدخول. */
+.spinner {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  border: 2px solid rgba(255, 255, 255, 0.4);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
 button.primary {
   background: var(--color-primary);
   color: #fff;
+  min-height: var(--size-button-height);
 }
 
 button.secondary {
   background: var(--color-secondary);
   color: #fff;
+  min-height: var(--size-button-height);
 }
 
 .table-scroll-wrap {
@@ -56,13 +180,14 @@ button.secondary {
 
 table.app-table {
   width: 100%;
+  min-width: 640px;
   border-collapse: collapse;
 }
 
 table.app-table thead th {
   position: sticky;
   top: 0;
-  background: var(--color-primary);
+  background: #0E3A75;
   color: #fff;
   font-weight: bold;
   font-size: 12px;
@@ -79,7 +204,65 @@ table.app-table td {
   border-bottom: 1px solid #eef0f3;
 }
 
+/* تلوين متناوب للصفوف (أبيض/رمادي فاتح جدًا) لتسهيل تتبّع كل صف بصريًا في الجداول الطويلة. */
+table.app-table tbody tr:nth-child(even) {
+  background: #F6F8FC;
+}
+
+/* مستند الطباعة/PDF (PermitPrint) مخفي بالكامل على الشاشة دائمًا - لا يُعرض إلا مؤقتًا
+   وخارج نطاق الرؤية (بعيدًا عن يمين الشاشة، وليس display:none) أثناء التصدير المباشر
+   لملف PDF (انظر utils/pdfExport.js)، كي تتمكّن html2canvas من التقاط أبعاده الحقيقية. */
+.permit-print-root { display: none; }
+.permit-print-root.pdf-export-active {
+  display: block;
+  position: fixed;
+  top: 0;
+  left: -99999px;
+  z-index: -1;
+}
+
+/* أبعاد A4 الفعلية (210×297مم) لكل صفحة طباعة/تصدير - قاعدة أساسية دائمة (وليست محصورة
+   بـ@media print فقط) لأن التصدير المباشر لملف PDF يحتاج قياسها الحقيقي أثناء التقاطها
+   على الشاشة (بعيدًا عن نطاق الرؤية)، وليس فقط أثناء الطباعة الفعلية عبر Ctrl+P. */
+.print-page {
+  width: 210mm;
+  min-height: 297mm;
+  padding: 12mm;
+  box-sizing: border-box;
+  background: #fff;
+}
+.print-page table.app-table { font-size: 10px; }
+.print-page table.app-table th, .print-page table.app-table td { padding: 4px; }
+
 @media print {
+  /* هامش الصفحة صفر هنا عمدًا - كل صفحة طباعة (.print-page) تدير حشوتها الداخلية بنفسها
+     بأبعاد A4 الفعلية الكاملة، بدل الاعتماد على هامش المتصفح العام الذي كان يُضاف فوق
+     حشوة الصفحة نفسها فيُنتج صفحات فائضة فارغة. */
+  @page {
+    size: A4;
+    margin: 0;
+  }
   .no-print { display: none !important; }
   body { background: #fff; }
+
+  /* الشاشة التفاعلية/شاشة العرض بأكملها لا تُطبع إطلاقًا الآن - مستند الطباعة الفعلي
+     مستقل تمامًا (PermitPrint)، يظهر فقط عند استخدام الطباعة اليدوية (Ctrl+P) كبديل
+     احتياطي للتصدير المباشر لملف PDF. */
+  .screen-only { display: none !important; }
+
+  .permit-print-root { display: block !important; position: static !important; left: 0 !important; z-index: auto !important; }
+  /* يُصفَّر هامش صفحة الرابط الدائم نفسها عند الطباعة - وإلا يُضاف فوق حشوة "print-page"
+     الداخلية (210مم بالفعل) فيدفع المحتوى فوق حافة ورقة A4 الفعلية بمقدار طفيف. */
+  .permit-link-page-wrap { padding: 0 !important; }
+
+  /* كل صفحة تبدأ بورقة A4 جديدة عند الطباعة الفعلية فقط - بدون تقييد الفائض (لا
+     overflow:hidden): تعليمات السلامة متغيّرة الطول وقد تتجاوز صفحة واحدة أحيانًا. */
+  .print-page {
+    break-after: page;
+    page-break-after: always;
+  }
+  .print-page-last {
+    break-after: auto;
+    page-break-after: auto;
+  }
 }

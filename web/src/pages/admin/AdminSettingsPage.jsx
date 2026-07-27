@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { getAllSettings, updateSettingValue, getSafetyItems, addSafetyItem, updateSafetyItem, deactivateSafetyItem } from '../../services/settingsService.js';
+import { convertArabicDigitsToEnglish } from '../../hooks/useArabicIndicDigits.js';
 
 export default function AdminSettingsPage() {
   const [tab, setTab] = useState('general');
@@ -48,8 +49,8 @@ function GeneralSettingsTab() {
             {rowsInGroup.map((s) => (
               <tr key={s.row}>
                 <td>{s.keyLabel}</td>
-                <td><input value={s.valueAr || ''} onChange={(e) => handleChange(s.row, 'valueAr', e.target.value)} /></td>
-                <td><input value={s.valueEn || ''} onChange={(e) => handleChange(s.row, 'valueEn', e.target.value)} /></td>
+                <td><input value={s.valueAr || ''} onChange={(e) => handleChange(s.row, 'valueAr', convertArabicDigitsToEnglish(e.target.value))} /></td>
+                <td><input value={s.valueEn || ''} onChange={(e) => handleChange(s.row, 'valueEn', convertArabicDigitsToEnglish(e.target.value))} /></td>
                 <td><button onClick={() => handleSave(s)} style={{ fontSize: 11 }}>حفظ</button></td>
               </tr>
             ))}
@@ -82,6 +83,7 @@ function SafetySettingsTab() {
         <select value={permitType} onChange={(e) => setPermitType(e.target.value)}>
           <option value="PTW">PTW</option>
           <option value="SFT">SFT</option>
+          <option value="ALL">الكل (كل الأنواع)</option>
         </select>
         <select value={stage} onChange={(e) => setStage(e.target.value)}>
           <option value="المصدر">المصدر</option>
@@ -93,10 +95,11 @@ function SafetySettingsTab() {
 
       <div className="table-scroll-wrap">
         <table className="app-table">
-          <thead><tr><th>النوع</th><th>النص بالعربية</th><th>النص بالإنجليزية</th><th>إجراءات</th></tr></thead>
+          <thead><tr><th>ينطبق على</th><th>النوع</th><th>النص بالعربية</th><th>النص بالإنجليزية</th><th>إجراءات</th></tr></thead>
           <tbody>
             {items.map((item) => (
               <tr key={item.row}>
+                <td>{item.permitType === 'ALL' ? 'الكل' : item.permitType}</td>
                 <td>{item.itemType}</td>
                 <td>{item.textAr}</td>
                 <td>{item.textEn}</td>
@@ -112,8 +115,8 @@ function SafetySettingsTab() {
           <option value="إجراء">إجراء (Checkbox)</option>
           <option value="تعليمات">تعليمات (للاطلاع فقط)</option>
         </select>
-        <input placeholder="النص بالعربية" value={newItem.textAr} onChange={(e) => setNewItem((f) => ({ ...f, textAr: e.target.value }))} />
-        <input placeholder="النص بالإنجليزية" value={newItem.textEn} onChange={(e) => setNewItem((f) => ({ ...f, textEn: e.target.value }))} />
+        <input placeholder="النص بالعربية" value={newItem.textAr} onChange={(e) => setNewItem((f) => ({ ...f, textAr: convertArabicDigitsToEnglish(e.target.value) }))} />
+        <input placeholder="النص بالإنجليزية" value={newItem.textEn} onChange={(e) => setNewItem((f) => ({ ...f, textEn: convertArabicDigitsToEnglish(e.target.value) }))} />
         <button className="primary" onClick={handleAdd}>إضافة بند</button>
       </div>
     </div>

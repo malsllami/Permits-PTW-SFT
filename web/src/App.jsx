@@ -3,7 +3,7 @@ import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { getPublicSettings, applyColorsFromSettings } from './services/settingsService.js';
 
 import LoginPage from './pages/LoginPage.jsx';
-import CreatePermitPage from './pages/source/CreatePermitPage.jsx';
+import SourceHomePage from './pages/source/SourceHomePage.jsx';
 import MyRecordsPage from './pages/source/MyRecordsPage.jsx';
 import PermitLinkPage from './pages/permit/PermitLinkPage.jsx';
 import AdminLayout from './pages/admin/AdminLayout.jsx';
@@ -28,7 +28,7 @@ export default function App() {
         <Route path="/login" element={<LoginPage />} />
         <Route path="/permit" element={<PermitLinkPage />} />
 
-        <Route path="/source/create" element={<ProtectedRoute><CreatePermitPage /></ProtectedRoute>} />
+        <Route path="/source/home" element={<ProtectedRoute><SourceHomePage /></ProtectedRoute>} />
         <Route path="/source/records" element={<ProtectedRoute><MyRecordsPage /></ProtectedRoute>} />
 
         <Route path="/admin" element={<ProtectedRoute><AdminLayout /></ProtectedRoute>}>

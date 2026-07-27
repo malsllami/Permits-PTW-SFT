@@ -1,23 +1,86 @@
-/* قيم افتراضية أولية فقط - تُستبدل فعليًا بقيم "الإعدادات العامة" > "ألوان النظام" عند الإقلاع (settingsService.applyColorsFromSettings) */
+/* قيم افتراضية أولية فقط - تُستبدل فعليًا بقيم "الإعدادات العامة" > "ألوان النظام" عند الإقلاع
+   (settingsService.applyColorsFromSettings). ملاحظة: تحديث القيم هنا لا يغيّر الألوان الفعلية
+   المعروضة في نسخة منشورة سابقًا - تلك تُقرأ من "الإعدادات العامة" بالشيت نفسها، فيلزم تحديثها
+   من لوحة المدير (الإعدادات > ألوان النظام) لرؤية أي لون جديد فعليًا على الموقع الحي. */
 :root {
-  --color-primary: #143A6B;
-  --color-primary-light: #1E7FC2;
-  --color-secondary: #2E9E49;
-  --color-accent: #0FA398;
+  /* ألوان النظام - مطابقة حرفيًا لوثيقة "مواصفات التصميم الرسمية" (آخر نسخة معتمدة). */
+  --color-primary: #173F7A;
+  --color-primary-light: #DCEEFF;
+  --color-secondary: #2FA84F;
+  --color-accent: #75E08A;
   --color-text: #2B2F36;
-  --color-warning: #E8A93B;
-  --color-error: #D64545;
-  --color-success: #3FBE63;
+  --color-warning: #F59E0B;
+  --color-error: #D94A4A;
+  --color-success: #16A34A;
+  --color-navbar: #0D3E78;
+  --color-bg-work: #F5F9FF;
+  --color-bg-safety: #EDF7FF;
+  --color-bg-source: #FFF5F5;
+  --color-bg-receiver: #FFFBEA;
+  --color-bg-closing: #F4FFF4;
+  --color-bg-permit-number: #E8F8EA;
   --color-surface: #FFFFFF;
-  --color-background: #F5F7FA;
-  --radius-md: 14px;
-  --radius-lg: 20px;
-}
+  --color-background: #F6F8FC;
+  --color-border: #D9DEE6;
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --color-surface: #1B1F27;
-    --color-background: #11141A;
-    --color-text: #E8EAED;
-  }
+  /* هوية بصرية ثابتة لنوعي التصريح (قسم 11 بدليل التصميم) - تُعاد نفس ألوان النظام الأساسية
+     الموجودة فعلًا (Primary/Secondary) بدل اختراع ألوان جديدة، حتى يبقى التطبيق منسجمًا مع
+     "ألوان النظام" القابلة للتعديل من لوحة الإعدادات. */
+  --color-ptw: var(--color-primary);
+  --color-sft: var(--color-secondary);
+
+  /* حالات الألوان (قسم 12 بدليل التصميم) - تحذير قبل انتهاء بطاقة السلامة (60-1 يوم)،
+     منتهية (تمنع الإنشاء/الاستلام/الإغلاق)، مؤرشفة، وسلة المحذوفات. */
+  --color-status-warning: #F59E0B;
+  --color-status-expired: #4B5563;
+  --color-status-archived: #9AA1AC;
+  --color-status-trash: #D94A4A;
+
+  /* الأحمر (Issuer) للمصدر والأصفر (Receiver) للمستلم دائمًا وفي كل الشاشات - مصدر واحد
+     لهذين اللونين يُستخدم في بطاقة بيانات الموظف بالشاشة الرئيسية وفي THEMES الخاص بنموذج
+     التصريح معًا، بدل تكرار نفس القيم كأرقام ثابتة في أكثر من ملف. */
+  --color-role-source-border: #D9534F;
+  --color-role-receiver-border: #F0B429;
+
+  /* نصف قطر الزوايا - حسب الوثيقة: بطاقة كبيرة/صغيرة/إدخال/زر منفصلة عن بعضها. */
+  --radius-lg: 20px;
+  --radius-sm: 14px;
+  --radius-md: 12px;
+  --radius-badge: 10px;
+
+  /* الظلال. */
+  --shadow-card: 0 6px 20px rgba(0, 0, 0, .08);
+  --shadow-dialog: 0 8px 25px rgba(0, 0, 0, .12);
+
+  /* سماكة الحدود الموحّدة. */
+  --border-width: 1.5px;
+
+  /* مقياس الخطوط والمقاسات (H1/H2 للعناوين الكبيرة، Card Title لعنوان البطاقة، Section للقسم
+     الفرعي، Body لنص الحقول، Caption لتسميات الحقول الصغيرة). */
+  --font-ar: 'IBM Plex Sans Arabic', Tahoma, sans-serif;
+  --font-en: 'Inter', 'IBM Plex Sans Arabic', Tahoma, sans-serif;
+  --fs-h1: 34px;
+  --fs-h2: 28px;
+  --fs-page-title: 28px;
+  --fs-card-title: 22px;
+  --fs-subtitle: 18px;
+  --fs-section: 18px;
+  --fs-body: 16px;
+  --fs-field-label: 13px;
+  --fs-field-value: 16px;
+  --fs-caption: 13px;
+  --size-input-height: 52px;
+  --size-button-height: 46px;
+
+  /* المسافات القياسية بين العناصر/البطاقات/الأقسام. */
+  --gap-card: 12px;
+  --gap-section: 20px;
+  --card-padding: 20px;
+
+  /* مقاسات الهيكل العام لشاشة الإدخال التفاعلية (Header/شريط المعلومات/Timeline) وبطاقات
+     الأطراف (Issuer/Receiver/Closing). */
+  --size-header-height: 84px;
+  --size-infobar-height: 70px;
+  --size-timeline-height: 30px;
+  --size-card-header-height: 56px;
 }

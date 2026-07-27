@@ -25,7 +25,7 @@ export default function AdminGate({ children }) {
   if (!employee || !employee.isAdmin) {
     return (
       <div style={{ padding: 30, textAlign: 'center' }}>
-        هذه الصفحة متاحة فقط للمدير. <Link to="/source/create">العودة</Link>
+        هذه الصفحة متاحة فقط للمدير. <Link to="/source/home">العودة</Link>
       </div>
     );
   }
@@ -59,7 +59,7 @@ export default function AdminGate({ children }) {
         </button>
         {status === 'denied' && (
           <div style={{ marginTop: 10 }}>
-            <Link to="/source/create">العودة للوحة المصدر</Link>
+            <Link to="/source/home">العودة للوحة المصدر</Link>
           </div>
         )}
       </div>

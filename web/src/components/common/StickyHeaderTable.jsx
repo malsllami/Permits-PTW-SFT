@@ -1,7 +1,7 @@
 import React from 'react';
 
 /** جدول عام: صف أول ثابت وملوّن، محتوى محاذى للوسط بخط عريض حجم 12 (معيار الواجهة الموحّد). */
-export default function StickyHeaderTable({ columns, rows, renderRow, maxHeight = 480 }) {
+export default function StickyHeaderTable({ columns, rows, renderRow, maxHeight = 480, getRowStyle }) {
   return (
     <div className="table-scroll-wrap" style={{ maxHeight, overflowY: 'auto' }}>
       <table className="app-table">
@@ -14,7 +14,7 @@ export default function StickyHeaderTable({ columns, rows, renderRow, maxHeight 
         </thead>
         <tbody>
           {rows.map((row, idx) => (
-            <tr key={row.id || idx}>{renderRow(row, idx)}</tr>
+            <tr key={row.id || idx} style={getRowStyle ? getRowStyle(row) : undefined}>{renderRow(row, idx)}</tr>
           ))}
           {rows.length === 0 && (
             <tr>

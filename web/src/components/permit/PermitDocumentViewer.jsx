@@ -1,23 +1,38 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { getFullPermitView, sendToReceiver, saveReceiverSection, approveBySource, closeOrCancelByReceiver, closeBySource } from '../../services/permitsService.js';
+import React, { useEffect, useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import {
+  getFullPermitView, sendToReceiver, saveSourceWorkData, saveReceiverSection, approveBySource, closeOrCancelByReceiver, closeBySource,
+  initiateReceiverHandover, confirmReceiverHandover, getSecretCodeForSource
+} from '../../services/permitsService.js';
+import { getAllSettings, getPublicSettings } from '../../services/settingsService.js';
 import { requestMandatoryGps } from '../../hooks/useGeolocation.js';
-import { ACCESS_MODE } from '../../config/constants.js';
+import { ACCESS_MODE, PERMIT_TYPE } from '../../config/constants.js';
 import { t } from '../../config/permitLabels.js';
+import { sanitizeDigitsOnly, normalizeMixedInput } from '../../hooks/useArabicIndicDigits.js';
 import SignaturePad from '../common/SignaturePad.jsx';
 import QRCodeView from '../common/QRCodeView.jsx';
-import BilingualDateField from '../common/BilingualDateField.jsx';
+import Icon from '../common/Icon.jsx';
 import SafetyChecklistSection from './SafetyChecklistSection.jsx';
-import SectionLanguageToggle, { useSectionLanguage } from './SectionLanguageToggle.jsx';
-import ZoomControls from './ZoomControls.jsx';
 import SafetyInstructionsPage from './SafetyInstructionsPage.jsx';
-
-const CARD_WIDTH = 794; // عرض A4 التقريبي عند 96dpi
+import SafetyAcknowledgmentGate from './SafetyAcknowledgmentGate.jsx';
+import PermitPrint from './PermitPrint.jsx';
+import { computeWorkDurationLabel } from '../../utils/permitFormatting.js';
+import { formatDateTimeShort } from '../../hooks/useHijriGregorianDate.js';
+import { THEMES, WORK_FIELD_LABEL_BG, WORK_FIELD_LABEL_TEXT } from './permitTheme.js';
+import { downloadPermitPdf } from '../../utils/pdfExport.js';
+import { WorkField, WorkSelectField, BadgeChipField } from './PermitFormFields.jsx';
+import PartySection from './PartySection.jsx';
+import { WizardStepper, LifecycleTimeline, WizardNav } from './PermitStepperNav.jsx';
+import { SharePanel, SummaryTables } from './PermitSummary.jsx';
 
 /**
  * المكوّن المحوري: عرض/تعبئة/توقيع التصريح بكامل بياناته في صفحة/بطاقة واحدة قابلة
  * للتكبير والتصغير وإعادة الضبط، متجاوبة مع اللابتوب والجوال، بلا تبويبات أو صفحات منفصلة.
+ * كل قسم (مصدر/مستلم/إغلاق) يُعرض دائمًا ضمن نفس الصفحة، لكن التعديل فيه مقفل إلا
+ * خلال مرحلته الفعلية من دورة حياة التصريح، مع ترميز لوني يوضح حالة كل قسم.
  */
 export default function PermitDocumentViewer({ creationId, accessMode, currentUser, onRefreshNeeded }) {
+  const navigate = useNavigate();
   const [permit, setPermit] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -26,14 +41,56 @@ export default function PermitDocumentViewer({ creationId, accessMode, currentUs
   const [formData, setFormData] = useState({});
   const [signature, setSignature] = useState('');
   const [checkedMap, setCheckedMap] = useState({});
+  const [sourceChecklistComplete, setSourceChecklistComplete] = useState(false);
+  // إقرار الاطلاع على تعليمات السلامة - بوابة مستقلة لكل مرحلة (مصدر/مستلم/إغلاق مستلم/
+  // إغلاق مصدر) تسبق فتح نموذج تلك المرحلة، ولا تُحفظ في الخادم (مجرد بوابة واجهة محلية
+  // تُطلب مجددًا عند كل تحميل جديد للصفحة، وليست جزءًا من بيانات التصريح الفعلية).
+  const [ackSource, setAckSource] = useState(false);
+  const [ackReceiver, setAckReceiver] = useState(false);
+  const [ackReceiverClose, setAckReceiverClose] = useState(false);
+  const [ackSourceClose, setAckSourceClose] = useState(false);
+  const [authorityTypeOptions, setAuthorityTypeOptions] = useState([]);
+  const [receiverEntityOptions, setReceiverEntityOptions] = useState([]);
+  const [voltageOptions, setVoltageOptions] = useState([]);
+  const [showCancelReason, setShowCancelReason] = useState(false);
+  const [cancelReason, setCancelReason] = useState('');
+  const [handoverNewReceiverId, setHandoverNewReceiverId] = useState('');
+  const [handoverSignature, setHandoverSignature] = useState('');
+  const [showHandoverForm, setShowHandoverForm] = useState(false);
+  const [sentSecretCode, setSentSecretCode] = useState('');
+  const [sentCloseSecretCode, setSentCloseSecretCode] = useState('');
+  const [linkCopied, setLinkCopied] = useState(false);
+  const [companyName, setCompanyName] = useState('');
+  const [shareSecretLoading, setShareSecretLoading] = useState(false);
+  // لغة صفحة تعليمات السلامة النهائية عند الطباعة/PDF - المستند المطبوع ثابت (لا زر تبديل
+  // حي بعد الطباعة)، لذا تُختار اللغة صراحة عبر بوابة اختيار قبل تشغيل الطباعة فعليًا.
+  const [printLang, setPrintLang] = useState('ar');
+  const [showPrintLangPrompt, setShowPrintLangPrompt] = useState(false);
+  const [pdfExporting, setPdfExporting] = useState(false);
+  // شاشة الإدخال التفاعلية تُقسَّم إلى خطوات (Wizard): بيانات العمل → المصدر → المستلم →
+  // مراجعة وإصدار → الإغلاق - كل خطوة تظهر بمفردها بدل استمرار طويل متمرر. تُستخدم فقط
+  // أثناء دورة حياة التصريح؛ بعد الإغلاق يُعرض التصريح كاملًا دفعة واحدة (شاشة العرض/الطباعة).
+  const [currentStep, setCurrentStep] = useState(0);
+  const initialStepSetRef = useRef(false);
+  // بعد إغلاق/إلغاء التصريح: شاشة العرض النهائية أيضًا مقسَّمة إلى 4 "صفحات" للتصفح (مطابقة
+  // لهيكلة مستند الطباعة PermitPrint) بدل استمرار واحد طويل: 1) بيانات المهمة+المصدر+المستلم
+  // 2) الإغلاق  3) رحلة التصريح  4) تعليمات السلامة.
+  const [viewPage, setViewPage] = useState(0);
 
-  const containerRef = useRef(null);
-  const cardRef = useRef(null);
-  const [scale, setScale] = useState(1);
-  const [fitScale, setFitScale] = useState(1);
+  useEffect(() => {
+    getAllSettings().then((rows) => {
+      setAuthorityTypeOptions(rows.filter((r) => r.group === 'أنواع الجهة المعنية'));
+      setReceiverEntityOptions(rows.filter((r) => r.group === 'أنواع الجهة المستلمة'));
+      setVoltageOptions(rows.filter((r) => r.group === 'مستوى الجهد لتصريح PTW'));
+    }).catch(() => {});
+    // اسم الشركة يُقرأ من "الإعدادات العامة" (وليس نصًا ثابتًا بالكود) ليظهر في رسالة
+    // مشاركة واتساب بنفس الاسم المعتمد من لوحة إعدادات المدير.
+    getPublicSettings().then((rows) => {
+      const row = rows.filter((r) => r.group === 'معلومات النظام' && r.key === 'COMPANY NAME')[0];
+      if (row) setCompanyName(row.valueAr);
+    }).catch(() => {});
+  }, []);
 
-  const [headerLang, setHeaderLang] = useSectionLanguage('ar');
-  const [workLang, setWorkLang] = useSectionLanguage('ar');
 
   const load = () => {
     setLoading(true);
@@ -45,23 +102,52 @@ export default function PermitDocumentViewer({ creationId, accessMode, currentUs
 
   useEffect(() => { load(); /* eslint-disable-next-line */ }, [creationId]);
 
+  // مزامنة بنود السلامة المحفوظة فعليًا في الخادم مع الحالة المحلية عند كل تحميل/تحديث -
+  // بنود السلامة لم تكن تُرسل للخادم إطلاقًا سابقًا فتُفقد فور تحديث الصفحة أو إغلاق
+  // التصريح؛ الدمج (وليس الاستبدال) يحافظ على أي تأشير محلي لم يُحفَظ بعد في نفس الجلسة.
   useEffect(() => {
-    const computeFit = () => {
-      if (!containerRef.current) return;
-      const containerWidth = containerRef.current.clientWidth - 24;
-      const s = Math.min(1, containerWidth / CARD_WIDTH);
-      setFitScale(s);
-      setScale(s);
-    };
-    computeFit();
-    window.addEventListener('resize', computeFit);
-    return () => window.removeEventListener('resize', computeFit);
+    if (!permit) return;
+    setCheckedMap((prev) => ({ ...(permit.checklistState || {}), ...prev }));
   }, [permit]);
+
+  // يُحسب موضع الخطوة الافتراضي مرة واحدة فقط عند أول تحميل فعلي للتصريح (وليس عند كل
+  // إعادة تحميل لاحقة بعد كل إجراء) - حتى لا يُعاد المستخدم قسرًا لخطوة أخرى بعد كل حفظ.
+  useEffect(() => {
+    if (!permit || initialStepSetRef.current) return;
+    initialStepSetRef.current = true;
+    const isRecvEditableNow = accessMode === ACCESS_MODE.INTERACTIVE_RECEIVER || accessMode === ACCESS_MODE.ADMIN_FULL;
+    let step = 0;
+    if (permit.status === 'بانتظار اعتماد المصدر') {
+      step = 3;
+    } else if (
+      permit.status === 'نشط' || permit.status === 'بانتظار إغلاق المصدر' ||
+      permit.status === 'بانتظار تأكيد الإلغاء من المصدر'
+    ) {
+      step = 4;
+    } else if (permit.source && permit.source.transferDateTime) {
+      step = isRecvEditableNow ? 2 : 3;
+    }
+    setCurrentStep(step);
+  }, [permit, accessMode]);
+
+  // حفظ تلقائي (Autosave) لبيانات العمل أثناء كتابة المصدر لها - قبل الضغط على "مشاركة".
+  // بدون هذا كانت البيانات المكتوبة تبقى في الذاكرة فقط وتُفقد لو أُعيد فتح نفس الرابط
+  // قبل أن يضغط المصدر زر المشاركة (كانت تُحفظ سابقًا فقط عند sendToReceiver).
+  useEffect(() => {
+    if (!permit) return;
+    const editableNow = (accessMode === ACCESS_MODE.INTERACTIVE_SOURCE || accessMode === ACCESS_MODE.ADMIN_FULL) && !permit.source.transferDateTime;
+    if (!editableNow) return;
+    if (Object.keys(formData).length === 0) return;
+    const timer = setTimeout(() => {
+      saveSourceWorkData(creationId, formData).catch(() => {});
+    }, 900);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line
+  }, [formData, permit, accessMode, creationId]);
 
   const isSourceEditable = accessMode === ACCESS_MODE.INTERACTIVE_SOURCE || accessMode === ACCESS_MODE.ADMIN_FULL;
   const isReceiverEditable = accessMode === ACCESS_MODE.INTERACTIVE_RECEIVER || accessMode === ACCESS_MODE.ADMIN_FULL;
   const isSourceCloseEditable = accessMode === ACCESS_MODE.INTERACTIVE_SOURCE_CLOSE || accessMode === ACCESS_MODE.ADMIN_FULL;
-  const readOnlyAll = !isSourceEditable && !isReceiverEditable && !isSourceCloseEditable;
 
   const showFinalInstructions = permit && (permit.status === 'مغلق' || permit.status === 'ملغي');
 
@@ -70,9 +156,14 @@ export default function PermitDocumentViewer({ creationId, accessMode, currentUs
     setError('');
     try {
       const gps = await requestMandatoryGps();
-      await action(gps);
+      const result = await action(gps);
+      // يُصفَّر التوقيع بعد كل إجراء ناجح - لو بقي توقيع مرحلة سابقة في الذاكرة، كان يمكن
+      // الضغط على زر مرحلة لاحقة (مثل الاعتماد) فيُعاد استخدام نفس التوقيع القديم بدل
+      // إجبار المستخدم على التوقيع فعليًا في هذه المرحلة الجديدة.
+      setSignature('');
       load();
       if (onRefreshNeeded) onRefreshNeeded();
+      return result;
     } catch (e) {
       setError(e.message);
     } finally {
@@ -80,229 +171,821 @@ export default function PermitDocumentViewer({ creationId, accessMode, currentUs
     }
   }
 
-  const handleSendToReceiver = () => withGpsAction((gps) => sendToReceiver(creationId, formData, signature, gps));
-  const handleReceiverSubmit = () => withGpsAction((gps) => saveReceiverSection(creationId, formData, signature, gps));
-  const handleApprove = () => withGpsAction((gps) => approveBySource(creationId, signature, gps));
-  const handleReceiverClose = (action) => withGpsAction((gps) => closeOrCancelByReceiver(creationId, action, signature, gps));
-  const handleSourceClose = () => withGpsAction((gps) => closeBySource(creationId, signature, gps));
-
-  const zoomIn = () => setScale((s) => Math.min(2.5, s + 0.15));
-  const zoomOut = () => setScale((s) => Math.max(0.3, s - 0.15));
-  const resetZoom = () => setScale(fitScale);
-
-  const handlePrint = () => {
-    setScale(1);
-    setTimeout(() => {
-      window.print();
-      setScale(fitScale);
-    }, 150);
+  const handleSendToReceiver = async () => {
+    const result = await withGpsAction((gps) => sendToReceiver(creationId, formData, signature, gps, checkedMap));
+    if (result && result.secretCode) setSentSecretCode(result.secretCode);
   };
 
-  // دعم إيماءة Pinch-to-zoom باللمس
-  const pinchRef = useRef(null);
-  const onTouchStart = (e) => {
-    if (e.touches.length === 2) {
-      pinchRef.current = distanceBetween(e.touches[0], e.touches[1]);
+  // زر "مشاركة" يبقى متاحًا للمصدر في أي وقت لاحق (حتى بعد إغلاق/تحديث الصفحة) - يُعيد
+  // جلب الرمز السري الحالي من الخادم بدل الاعتماد فقط على القيمة اللحظية المُعادة عند
+  // الإرسال، والتي كانت تختفي نهائيًا بمجرد تحديث الصفحة.
+  const handleShowShareInfo = async () => {
+    setShareSecretLoading(true);
+    setError('');
+    try {
+      const result = await getSecretCodeForSource(creationId);
+      if (result.secretCode) setSentSecretCode(result.secretCode);
+      if (result.closeSecretCode) setSentCloseSecretCode(result.closeSecretCode);
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setShareSecretLoading(false);
     }
   };
-  const onTouchMove = (e) => {
-    if (e.touches.length === 2 && pinchRef.current) {
-      const newDist = distanceBetween(e.touches[0], e.touches[1]);
-      const ratio = newDist / pinchRef.current;
-      setScale((s) => Math.min(2.5, Math.max(0.3, s * ratio)));
-      pinchRef.current = newDist;
+
+  /** نص رسالة المشاركة عبر واتساب - الرمز السري لا يُدرج فيه أبدًا (يُبلَّغ شفهيًا فقط). */
+  function buildWhatsAppMessage() {
+    const lines = [
+      (companyName || '') + ' - قسم التصاريح',
+      '',
+      'نوع التصريح: ' + (permit.permitType === 'PTW' ? 'تصريح العمل (Permit To Work)' : 'تصريح الفحص (Sanction For Testing)'),
+      '',
+      'بيانات العطل:',
+      'الموقع: ' + (permit.location || '—'),
+      'الدائرة: ' + (permit.circuit || '—'),
+      'الوحدة: ' + (permit.unit || '—'),
+      'المحطة: ' + (permit.station || '—'),
+      'المغذي: ' + (permit.feeder || '—'),
+      'وصف العمل: ' + (permit.workDescription || '—'),
+      '',
+      'بيانات المصدر:',
+      'الرقم الوظيفي: ' + (permit.source.employeeId || '—'),
+      'الاسم: ' + (permit.source.fullName || '—'),
+      'رقم الجوال: ' + (permit.source.mobile || '—'),
+      '',
+      'رابط التصريح: ' + permit.permitLink,
+      '',
+      'تاريخ الإرسال والوقت: ' + (formatDateTimeShort(permit.source.transferDateTime) || '—')
+    ];
+    return lines.join('\n');
+  }
+
+  const handleShareWhatsApp = () => {
+    window.open('https://wa.me/?text=' + encodeURIComponent(buildWhatsAppMessage()), '_blank');
+  };
+  const handleReceiverSubmit = () => withGpsAction((gps) => saveReceiverSection(creationId, formData, signature, gps, checkedMap));
+  // توقيع واحد فقط للمصدر طوال دورة حياة التصريح (يُرسم عند التحويل للمستلم) - عند عودة
+  // التصريح للمصدر للاعتماد لا يُطلب توقيع جديد، بل يُعاد استخدام نفس التوقيع المحفوظ.
+  // بعد الاعتماد وتوليد رقم التصريح تنتقل دورة العمل بالكامل لمرحلة "الإغلاق" - لا حاجة
+  // لبقاء المصدر عالقًا في شاشة المراجعة نفسها (التي تصبح غير قابلة للتعديل الآن على أي حال).
+  const handleApprove = () => withGpsAction((gps) => approveBySource(creationId, permit.source.transferSignature, gps)).then(() => setCurrentStep(STEP_CLOSE));
+  const handleReceiverClose = async (action) => {
+    const result = await withGpsAction((gps) => closeOrCancelByReceiver(creationId, action, signature, gps, action === 'CANCEL' ? cancelReason : '', checkedMap));
+    if (result && result.secretCode) setSentCloseSecretCode(result.secretCode);
+  };
+  const copyPermitLink = () => {
+    navigator.clipboard.writeText(permit.permitLink).then(() => {
+      setLinkCopied(true);
+      setTimeout(() => setLinkCopied(false), 2000);
+    });
+  };
+  const handleSourceClose = () => withGpsAction((gps) => closeBySource(creationId, signature, gps, checkedMap));
+  const handleInitiateHandover = () => withGpsAction((gps) => initiateReceiverHandover(creationId, handoverNewReceiverId, handoverSignature, gps));
+  const handleConfirmHandover = () => withGpsAction((gps) => confirmReceiverHandover(permit.pendingHandover.transferId, handoverSignature, gps));
+
+  // صفحة تعليمات السلامة ثابتة اللغة عند التصدير (لا زر تبديل بعد التنزيل) - يُطلب من
+  // المستخدم اختيار اللغة صراحة أولًا، ثم يُصدَّر الملف مباشرة كـPDF (تنزيل فعلي، بدون
+  // المرور بنافذة طباعة المتصفح إطلاقًا). مهلة قصيرة قبل الالتقاط تضمن اكتمال إعادة رسم
+  // PermitPrint باللغة الجديدة أولًا (setPrintLang غير متزامن).
+  const confirmPrintLang = async (lang) => {
+    setPrintLang(lang);
+    setShowPrintLangPrompt(false);
+    setPdfExporting(true);
+    setError('');
+    try {
+      const fileName = 'تصريح-' + (permit.permitNumber || permit.creationId) + '.pdf';
+      await downloadPermitPdf(fileName);
+    } catch (e) {
+      setError('تعذّر تصدير ملف PDF: ' + e.message);
+    } finally {
+      setPdfExporting(false);
     }
   };
 
   if (loading) return <div style={{ padding: 24, textAlign: 'center' }}>جارٍ التحميل...</div>;
   if (!permit) return <div style={{ padding: 24, textAlign: 'center', color: 'var(--color-error)' }}>{error || 'تعذّر تحميل التصريح.'}</div>;
 
-  return (
-    <div>
-      <div
-        ref={containerRef}
-        onTouchStart={onTouchStart}
-        onTouchMove={onTouchMove}
-        style={{ overflow: 'auto', maxHeight: '80vh', padding: 12, background: 'var(--color-background)', borderRadius: 'var(--radius-lg)' }}
-      >
-        <div
-          ref={cardRef}
-          style={{
-            width: CARD_WIDTH, transform: `scale(${scale})`, transformOrigin: 'top center',
-            background: '#fff', margin: '0 auto', borderRadius: 12, boxShadow: '0 2px 16px rgba(0,0,0,0.12)',
-            padding: 28
-          }}
-        >
-          {/* رأس التصريح */}
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', borderBottom: '3px solid var(--color-primary)', paddingBottom: 10 }}>
-            <div>
-              <div style={{ fontWeight: 'bold', fontSize: 16, color: 'var(--color-primary)' }}>
-                {permit.permitType === 'PTW' ? 'تصريح العمل / Permit To Work' : 'تصريح التعميد بالاختبار / Sanction For Testing'}
-              </div>
-              {permit.voltageLevel && <div style={{ fontSize: 12 }}>{t('voltageLevel', headerLang)}: {permit.voltageLevel}</div>}
-              <div style={{ fontSize: 12 }}>{t('permitNumber', headerLang)}: {permit.permitNumber || '—'}</div>
-              <div style={{ fontSize: 12 }}>{t('status', headerLang)}: {permit.status}</div>
-            </div>
-            <div style={{ textAlign: 'center' }}>
-              <QRCodeView link={permit.permitLink} size={90} />
-              <SectionLanguageToggle lang={headerLang} onChange={setHeaderLang} />
-            </div>
-          </div>
+  const sourceSectionEditable = isSourceEditable && !permit.source.transferDateTime;
+  // قسم المصدر يبقى أحمر دائمًا كلون مميّز ثابت لهذا القسم (كما في النموذج الورقي) - لا
+  // يتحول لأخضر كامل حتى بعد اكتمال البيانات؛ فقط بنود السلامة وزر الإجراء يتحولان
+  // لأخضر عند اكتمالها (انظر SafetyChecklistSection وأزرار القسم أدناه).
+  const sourceTheme = THEMES.red;
 
-          {/* بيانات العمل */}
-          <section style={{ marginTop: 14 }}>
+  const receiverReceiveEditable = isReceiverEditable && !permit.receiver.receiveDateTime;
+  // يظهر القسم فقط بعد أن يُحوّل المصدر التصريح فعليًا - وليس بمجرد كون accessMode
+  // تفاعليًا (كان هذا يُظهر قسم المستلم قبل أوانه للمدير Admin_FULL أثناء مرحلة المصدر).
+  const showReceiverReceiveSection = !!permit.source.transferDateTime;
+
+  const receiverCloseEditable = isReceiverEditable && permit.status === 'نشط' && !permit.receiver.closeDateTime;
+  const showReceiverCloseSection = permit.receiver.receiveDateTime && (
+    permit.status === 'نشط' ||
+    permit.status === 'بانتظار إغلاق المصدر' ||
+    permit.status === 'بانتظار تأكيد الإلغاء من المصدر' ||
+    permit.status === 'مغلق' ||
+    permit.status === 'ملغي'
+  );
+
+  const sourceCloseEditable = isSourceCloseEditable && !permit.closingSource.closeDateTime;
+  const showSourceCloseSection = permit.status === 'بانتظار إغلاق المصدر' || permit.status === 'بانتظار تأكيد الإلغاء من المصدر' || permit.closingSource.closeDateTime;
+  // إغلاق المصدر النهائي بنفس الأحمر الثابت لهوية "المصدر" دائمًا (وليس أخضر مستقل) - طلب
+  // صريح: الهوية اللونية تتبع الطرف الذي يتصرف (مصدر=أحمر دائمًا، مستلم=أصفر فاتح دائمًا)
+  // بغض النظر عن كون الإجراء إصدارًا أو إغلاقًا.
+  const sourceCloseTheme = THEMES.red;
+
+  // شاشة الإدخال التفاعلية (Wizard) تظهر فقط لصاحب دور تفاعلي حقيقي (مصدر/مستلم/مدير) أثناء
+  // دورة حياة التصريح - أي زائر آخر (بلا رقم وظيفي، أو مسجَّل لكن غير مخوَّل لهذه المرحلة/بلا
+  // الرمز السري الصحيح) يبقى READ_ONLY ويرى شاشة العرض الكاملة (شكل مستند) بغض النظر عن حالة
+  // التصريح، فتُظهر له في أي مرحلة يقف التصريح دون منحه واجهة تفاعلية لا يملك صلاحية إجراء فيها.
+  const isInteractiveRole = (
+    accessMode === ACCESS_MODE.INTERACTIVE_SOURCE ||
+    accessMode === ACCESS_MODE.INTERACTIVE_RECEIVER ||
+    accessMode === ACCESS_MODE.INTERACTIVE_SOURCE_CLOSE ||
+    accessMode === ACCESS_MODE.ADMIN_FULL
+  );
+  const wizardMode = isInteractiveRole && !showFinalInstructions;
+  const STEP_WORK = 0, STEP_SOURCE = 1, STEP_RECEIVER = 2, STEP_ISSUE = 3, STEP_CLOSE = 4;
+  const showStep = (n) => !wizardMode || currentStep === n;
+  const STEP_DEFS = [
+    { key: STEP_WORK, label: t('workData', 'ar'), color: 'var(--color-primary)' },
+    { key: STEP_SOURCE, label: 'المصدر', color: THEMES.red.border },
+    { key: STEP_RECEIVER, label: 'المستلم', color: THEMES.yellow.border },
+    { key: STEP_ISSUE, label: 'مراجعة', color: 'var(--color-secondary)' },
+    // خطوة الإغلاق تضم إغلاق المستلم (أصفر) ثم إغلاق المصدر (أحمر) معًا - لون محايد للهيدر
+    // نفسه بدل تفضيل أحدهما، بينما يبقى كل قسم فرعي بلون الطرف الفعلي الذي يتصرف.
+    { key: STEP_CLOSE, label: 'الإغلاق', color: THEMES.neutral.border }
+  ];
+  // لون الهيدر العلوي الملوّن بالكامل - بلون خطوة الويزار الحالية أثناء دورة الحياة، أو
+  // بلون الأزرق الأساسي بعد الإغلاق (شاشة العرض/الطباعة النهائية لا ترتبط بخطوة معيّنة).
+  const headerColor = wizardMode ? STEP_DEFS[currentStep].color : 'var(--color-navbar)';
+  // سهم الرجوع بالهيدر: خطوة سابقة إن أمكن، وإلا رجوع فعلي في المتصفح (للوصول من الرابط
+  // المباشر/QR دون تاريخ تصفح داخل الموقع، بدل توجيه ثابت لصفحة واحدة قد لا تناسب السياق).
+  const handleHeaderBack = () => {
+    if (wizardMode && currentStep > 0) { setCurrentStep(currentStep - 1); return; }
+    if (!wizardMode && viewPage > 0) { setViewPage(viewPage - 1); return; }
+    navigate(-1);
+  };
+
+  // تصفح 4 صفحات لشاشة العرض النهائية (بعد الإغلاق/الإلغاء فقط) - في وضع الويزار
+  // (أثناء دورة الحياة) تبقى كل الصفحات "ظاهرة" دومًا (showView تُعيد true) لأن التصفح
+  // هنا غير ذي معنى؛ التقسيم الفعلي يُطبَّق فقط عندما !wizardMode.
+  const VIEW_PAGE_WORK = 0, VIEW_PAGE_CLOSE = 1, VIEW_PAGE_JOURNEY = 2, VIEW_PAGE_SAFETY = 3;
+  // زائر غير مخوَّل (بلا رقم وظيفي، أو مسجَّل لكن غير المصدر/المستلم المعنيَّين) يفتح الرابط
+  // قبل توليد رقم تصريح العمل فعليًا (أي قبل اعتماد المصدر) - لا يوجد بعد مستند فعلي ذو معنى
+  // ليُعرَض له، فتُظهر له بطاقة حالة مختصرة فقط ("قيد الإنشاء") بدل قسم بقسم فارغ/غير مكتمل.
+  const showCreationPendingCard = !wizardMode && !isInteractiveRole && !permit.permitNumber;
+  const showView = (n) => !showCreationPendingCard && (wizardMode || viewPage === n);
+  const VIEW_PAGE_DEFS = [
+    { key: VIEW_PAGE_WORK, label: 'بيانات المهمة', color: 'var(--color-primary)' },
+    { key: VIEW_PAGE_CLOSE, label: 'الإغلاق', color: THEMES.closing.border },
+    { key: VIEW_PAGE_JOURNEY, label: 'رحلة التصريح', color: 'var(--color-secondary)' },
+    { key: VIEW_PAGE_SAFETY, label: 'تعليمات السلامة', color: THEMES.neutral.border }
+  ];
+
+  return (
+    <>
+    {/* الشاشة التفاعلية/شاشة العرض بالكامل لا تنتمي لمستند الطباعة/PDF إطلاقًا - "screen-only"
+        تُخفيها تمامًا عند الطباعة (بدل الاعتماد على تنسيقات طباعة مبعثرة داخلها)، بينما
+        مستند الطباعة الفعلي هو PermitPrint وحده أدناه، مكوّن مستقل تمامًا بذاته. */}
+    {/* شاشة الإدخال/الاستلام/الإغلاق تبقى بعرض جوال ثابت دائمًا (Mobile First حرفيًا، بلا
+        نمو مع الشاشات الكبيرة) - أما شاشة العرض النهائية بعد الإغلاق فمتجاوبة بالكامل
+        (responsive-shell) لأن كثيرًا من المشرفين يفتحونها من اللابتوب، حسب القرار المعتمد. */}
+    {/* شاشة الإنشاء/الاستلام/الإغلاق التفاعلية أصبحت تتوسّع على الشاشات الكبيرة أيضًا
+        (إلغاء للقرار السابق بإبقائها Mobile First دائمًا، بطلب صريح لاحق) - نفس صنف
+        "responsive-shell" المستخدَم في شاشة العرض النهائية، بلا أي تكبير لمقاسات العناصر
+        نفسها (الأزرار/الحقول تبقى بنفس الارتفاع الثابت دائمًا) - فقط عرض الحاوية يكبر. */}
+    <div className="screen-only responsive-shell">
+      <div style={{ borderRadius: 'var(--radius-lg)', overflow: 'hidden', boxShadow: 'var(--shadow-card)', background: '#fff' }}>
+        {/* هيدر ملوّن بالكامل حسب الخطوة الحالية - سهم رجوع + عنوان التصريح + مستوى الجهد +
+            دوائر خطوات الويزار مدمجة بداخله (شاشة تطبيق جوال حقيقية، بدل مستند A4 مصغّر).
+            يظهر فقط أثناء دورة الحياة التفاعلية (الإصدار/الاستلام/الإغلاق). */}
+        {wizardMode && (
+          <div style={{ background: headerColor, color: '#fff', padding: '10px 14px', boxSizing: 'border-box' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <button
+                type="button" onClick={handleHeaderBack} className="no-print"
+                style={{ background: 'transparent', color: '#fff', fontSize: 20, padding: '0 4px', minHeight: 0, lineHeight: 1 }}
+                aria-label="رجوع"
+              >‹</button>
+              <div style={{ flex: 1, textAlign: 'center' }}>
+                {/* شارة نوع التصريح - أزرق لـPTW وتركواز لـSFT، هوية بصرية ثابتة في كل الشاشات (قسم 11/15 بدليل التصميم) */}
+                <div style={{ fontSize: 10, fontWeight: 'bold', opacity: 0.85, letterSpacing: 0.5 }}>{permit.permitType}</div>
+                <div style={{ fontWeight: 'bold', fontSize: 15, lineHeight: 1.3 }}>
+                  {permit.permitType === 'PTW' ? 'إنشاء تصريح عمل كهربائي' : 'إنشاء تصريح تعميد بالاختبار'}
+                  {permit.voltageLevel && <span style={{ fontSize: 12, fontWeight: 500, opacity: 0.9 }}> · {permit.voltageLevel}</span>}
+                </div>
+              </div>
+              <span style={{ width: 20 }} />
+            </div>
+            <WizardStepper steps={STEP_DEFS} currentStep={currentStep} onStepClick={(s) => { if (s <= currentStep) setCurrentStep(s); }} light />
+          </div>
+        )}
+
+        {/* هيدر شاشة العرض النهائي (بعد الإغلاق/الإلغاء) - خلفية بيضاء محايدة بلا سهم رجوع
+            ولا تلوين بلون دور معيّن (المستند مكتمل، يخص الجميع)، يضم الشعار وعنوان التصريح
+            والجهد، ثم شريط QR/رقم التصريح/رقم البرنامج/مدة العمل مدمجًا داخله مباشرة، ثم
+            مؤشر تصفح الصفحات الأربع (حسب المواصفة المعتمدة لشاشة العرض النهائي فقط). */}
+        {!wizardMode && (
+          <div style={{ background: '#fff', padding: '18px 16px 14px', boxSizing: 'border-box', borderBottom: '1px solid var(--color-border)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+              <img src="/Permits-PTW-SFT/logo.png" alt="الشعار" style={{ width: 56, height: 56, objectFit: 'contain', flexShrink: 0 }} />
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 10, fontWeight: 'bold', color: 'var(--color-primary)', opacity: 0.85, letterSpacing: 0.5 }}>{permit.permitType}</div>
+                <div style={{ fontWeight: 'bold', fontSize: 18, lineHeight: 1.3, color: 'var(--color-text)' }}>
+                  {permit.permitType === 'PTW' ? 'تصريح عمل كهربائي' : 'تصريح تعميد بالاختبار'}
+                  {permit.voltageLevel && <span style={{ fontSize: 13, fontWeight: 500, opacity: 0.75 }}> · {permit.voltageLevel}</span>}
+                </div>
+              </div>
+            </div>
+
+            {!showCreationPendingCard && (permit.operationalProgramNumber || permit.permitNumber) && (
+              <div style={{ display: 'flex', gap: 10, marginTop: 14 }}>
+                <div style={{ flexShrink: 0, alignSelf: 'center' }}>
+                  <QRCodeView link={permit.permitLink} size={64} />
+                </div>
+                <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 6, fontSize: 11 }}>
+                  {/* رقم التصريح يخلط أحرفًا/أرقامًا إنجليزية مع فواصل ("DATE-WD-JD-PTW-000002")
+                      ضمن سياق عربي RTL - عرضه بجانب تسميته بسطر واحد يُعرِّضه لالتفاف السطر
+                      عشوائيًا، وقد يُعيد خوارزمية اتجاه النص (Bidi) ترتيب أجزائه بصريًا بشكل
+                      مربك عند الالتفاف. عنوان بسطره الخاص، ثم القيمة بسطر مستقل ثابت الاتجاه
+                      (ltr) بلا التفاف - يضمن ظهورها كاملة وبترتيبها الصحيح دائمًا. */}
+                  <div style={{ background: 'var(--color-bg-permit-number)', color: 'var(--color-success)', border: '1.5px solid var(--color-success)', borderRadius: 8, padding: '4px 8px' }}>
+                    <div style={{ fontWeight: 'bold', opacity: 0.85 }}>{t('permitNumber', 'ar')}</div>
+                    <strong style={{ display: 'block', direction: 'ltr', whiteSpace: 'nowrap', overflowX: 'auto' }}>{permit.permitNumber || '—'}</strong>
+                  </div>
+                  <div style={{ borderTop: '1px solid var(--color-border)' }} />
+                  <div style={{ display: 'flex', justifyContent: 'space-between', gap: 6 }}>
+                    <div>
+                      <div style={{ opacity: 0.65 }}>{t('operationalProgramNumber', 'ar')}</div>
+                      <div style={{ fontWeight: 'bold' }}>{permit.operationalProgramNumber || '—'}</div>
+                    </div>
+                    <div style={{ textAlign: 'left' }}>
+                      <div style={{ opacity: 0.65 }}>{t('workDuration', 'ar')}</div>
+                      <div style={{ fontWeight: 'bold' }}>{computeWorkDurationLabel(permit.source.approvalDateTime, permit.closingSource.closeDateTime) || '—'}</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {!showCreationPendingCard && (
+              <div style={{ marginTop: 14 }}>
+                <WizardStepper steps={VIEW_PAGE_DEFS} currentStep={viewPage} onStepClick={(s) => setViewPage(s)} freeNav />
+              </div>
+            )}
+          </div>
+        )}
+
+        <div style={{ padding: 14, background: 'var(--color-background)' }}>
+          {/* بطاقة "قيد الإنشاء" - لزائر غير مخوَّل يفتح الرابط قبل توليد رقم التصريح فعليًا؛
+              تحل محل كل أقسام المستند (المخفية جميعها تلقائيًا عبر showView أعلاه) ببطاقة
+              حالة مختصرة واحدة فقط، بدل صفحة شبه فارغة بأقسام متفرقة غير مكتملة بعد. */}
+          {showCreationPendingCard && (
+            <div className="app-card" style={{ textAlign: 'center', padding: 24 }}>
+              <Icon name="hourglass_top" size={36} color="var(--color-primary)" />
+              <div style={{ fontWeight: 'bold', fontSize: 15, marginTop: 10 }}>التصريح غير صالح للاستخدام حالياً</div>
+              <div style={{ fontSize: 12, opacity: 0.8, marginTop: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+                <Icon name="lock" size={14} /> لم يتم إصدار رقم تصريح العمل حتى الآن.
+              </div>
+              <div style={{ fontSize: 12, opacity: 0.75, marginTop: 6 }}>لا يمكن التحقق من هذا التصريح قبل إصدار رقم التصريح واعتماده رسميًا.</div>
+              <div style={{ fontSize: 12, fontWeight: 'bold', marginTop: 12, color: 'var(--color-primary)' }}>الحالة الحالية: قيد الإنشاء</div>
+            </div>
+          )}
+
+          {/* شريط المعلومات (QR + رقم البرنامج التشغيلي + مدة العمل + رقم التصريح) أثناء
+              دورة الحياة التفاعلية فقط - في شاشة العرض النهائي أصبح مدمجًا داخل الهيدر
+              الأبيض أعلاه مباشرة (بدل تكراره مرتين). */}
+          {wizardMode && (permit.operationalProgramNumber || permit.permitNumber) && (
+            <div style={{ background: '#fff', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-card)', padding: 10, marginBottom: 14, boxSizing: 'border-box' }}>
+              <div style={{ display: 'flex', gap: 10 }}>
+                <div style={{ flexShrink: 0, alignSelf: 'center' }}>
+                  <QRCodeView link={permit.permitLink} size={64} />
+                </div>
+                <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 6, fontSize: 11 }}>
+                  {/* رقم التصريح بارز أعلى العمود المقابل لـQR مباشرة - بطاقة خضراء فاتحة
+                      حسب دليل التصميم (وليست خلفية خضراء داكنة صلبة). */}
+                  {/* رقم التصريح يخلط أحرفًا/أرقامًا إنجليزية مع فواصل ("DATE-WD-JD-PTW-000002")
+                      ضمن سياق عربي RTL - عرضه بجانب تسميته بسطر واحد يُعرِّضه لالتفاف السطر
+                      عشوائيًا، وقد يُعيد خوارزمية اتجاه النص (Bidi) ترتيب أجزائه بصريًا بشكل
+                      مربك عند الالتفاف. عنوان بسطره الخاص، ثم القيمة بسطر مستقل ثابت الاتجاه
+                      (ltr) بلا التفاف - يضمن ظهورها كاملة وبترتيبها الصحيح دائمًا. */}
+                  <div style={{ background: 'var(--color-bg-permit-number)', color: 'var(--color-success)', border: '1.5px solid var(--color-success)', borderRadius: 8, padding: '4px 8px' }}>
+                    <div style={{ fontWeight: 'bold', opacity: 0.85 }}>{t('permitNumber', 'ar')}</div>
+                    <strong style={{ display: 'block', direction: 'ltr', whiteSpace: 'nowrap', overflowX: 'auto' }}>{permit.permitNumber || '—'}</strong>
+                  </div>
+                  <div style={{ borderTop: '1px solid var(--color-border)' }} />
+                  <div style={{ display: 'flex', justifyContent: 'space-between', gap: 6 }}>
+                    <div>
+                      <div style={{ opacity: 0.65 }}>{t('operationalProgramNumber', 'ar')}</div>
+                      <div style={{ fontWeight: 'bold' }}>{permit.operationalProgramNumber || '—'}</div>
+                    </div>
+                    <div style={{ textAlign: 'left' }}>
+                      <div style={{ opacity: 0.65 }}>{t('workDuration', 'ar')}</div>
+                      <div style={{ fontWeight: 'bold' }}>{computeWorkDurationLabel(permit.source.approvalDateTime, permit.closingSource.closeDateTime) || '—'}</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+          {/* مراحل حياة التصريح - شريط زمني بالأيقونات والتواريخ، يظهر في كل الأحوال */}
+          {/* بعد الإغلاق تصبح "رحلة حياة التصريح" جزءًا من صفحة العرض الثالثة تحديدًا (رحلة
+              التصريح) بدل ظهورها دومًا فوق كل الصفحات؛ أثناء الويزار التفاعلي تبقى ظاهرة
+              دائمًا كما كانت (showView تُعيد true تلقائيًا عندما wizardMode). */}
+          {showView(VIEW_PAGE_JOURNEY) && <LifecycleTimeline permit={permit} />}
+
+          {/* 1) بيانات العمل - تظهر في خطوتها أثناء الويزار، وكتذكير عند خطوة المراجعة، أو في
+              "صفحة 1" من شاشة العرض النهائية بعد الإغلاق. */}
+          <section style={{ marginTop: 14, background: 'var(--color-bg-work)', border: 'var(--border-width) solid #A9C8F2', borderRadius: 'var(--radius-lg)', padding: 20, display: (wizardMode ? (showStep(STEP_WORK) || showStep(STEP_ISSUE)) : showView(VIEW_PAGE_WORK)) ? undefined : 'none' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <strong style={{ fontSize: 13 }}>{t('workData', workLang)}</strong>
-              <SectionLanguageToggle lang={workLang} onChange={setWorkLang} />
+              <strong style={{ fontSize: 13, display: 'flex', alignItems: 'center', gap: 6 }}><Icon name="assignment" size={16} /> {t('workData', 'ar')}</strong>
             </div>
+            <div style={{ marginTop: 8, fontSize: 12 }}>
+              <WorkField
+                label={t('operationalProgramNumber', 'ar')}
+                value={permit.operationalProgramNumber}
+                editable={sourceSectionEditable}
+                onChange={(v) => setFormData((f) => ({ ...f, operationalProgramNumber: v }))}
+                full
+              />
+            </div>
+            {permit.permitType === PERMIT_TYPE.SFT && (
+              <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr)', gap: 8, marginTop: 8, fontSize: 12 }}>
+                <WorkField label={t('testType', 'ar')} value={permit.testType} editable={sourceSectionEditable} onChange={(v) => setFormData((f) => ({ ...f, testType: v }))} />
+                <WorkField label={t('testEquipmentName', 'ar')} value={permit.testEquipmentName} editable={sourceSectionEditable} onChange={(v) => setFormData((f) => ({ ...f, testEquipmentName: v }))} />
+              </div>
+            )}
+            {/* مستوى الجهد (PTW فقط) - يُدخَل هنا ضمن بيانات العمل بدل اختياره مسبقًا عند
+                الإنشاء، فلا يظهر شيء لم يُدخله المصدر بعد (قسم 10 بدليل التصميم). */}
+            {permit.permitType === PERMIT_TYPE.PTW && (
+              <div style={{ marginTop: 8, fontSize: 12 }}>
+                <WorkSelectField
+                  label={t('voltageLevel', 'ar')}
+                  value={permit.voltageLevel}
+                  editable={sourceSectionEditable}
+                  onChange={(v) => setFormData((f) => ({ ...f, voltageLevel: v }))}
+                  options={voltageOptions}
+                />
+              </div>
+            )}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginTop: 8, fontSize: 12 }}>
-              <WorkField label={t('location', workLang)} value={permit.location} editable={isSourceEditable && !permit.permitNumber} onChange={(v) => setFormData((f) => ({ ...f, location: v }))} />
-              <WorkField label={t('circuit', workLang)} value={permit.circuit} editable={isSourceEditable && !permit.permitNumber} onChange={(v) => setFormData((f) => ({ ...f, circuit: v }))} />
-              <WorkField label={t('unit', workLang)} value={permit.unit} editable={isSourceEditable && !permit.permitNumber} onChange={(v) => setFormData((f) => ({ ...f, unit: v }))} />
-              <WorkField label={t('station', workLang)} value={permit.station} editable={isSourceEditable && !permit.permitNumber} onChange={(v) => setFormData((f) => ({ ...f, station: v }))} />
-              <WorkField label={t('feeder', workLang)} value={permit.feeder} editable={isSourceEditable && !permit.permitNumber} onChange={(v) => setFormData((f) => ({ ...f, feeder: v }))} />
-              <WorkField label={t('operationalProgramNumber', workLang)} value={permit.operationalProgramNumber} editable={isSourceEditable && !permit.permitNumber} onChange={(v) => setFormData((f) => ({ ...f, operationalProgramNumber: v }))} />
+              <WorkField label={t('location', 'ar')} value={permit.location} editable={sourceSectionEditable} onChange={(v) => setFormData((f) => ({ ...f, location: v }))} />
+              <WorkField label={t('circuit', 'ar')} value={permit.circuit} editable={sourceSectionEditable} onChange={(v) => setFormData((f) => ({ ...f, circuit: v }))} />
+              <WorkField label={t('unit', 'ar')} value={permit.unit} editable={sourceSectionEditable} onChange={(v) => setFormData((f) => ({ ...f, unit: v }))} />
+              <WorkField label={t('station', 'ar')} value={permit.station} editable={sourceSectionEditable} onChange={(v) => setFormData((f) => ({ ...f, station: v }))} />
+              <WorkField label={t('feeder', 'ar')} value={permit.feeder} editable={sourceSectionEditable} onChange={(v) => setFormData((f) => ({ ...f, feeder: v }))} />
             </div>
-            <div style={{ marginTop: 8 }}>
-              <WorkField label={t('workDescription', workLang)} value={permit.workDescription} editable={isSourceEditable && !permit.permitNumber} onChange={(v) => setFormData((f) => ({ ...f, workDescription: v }))} full />
-              <WorkField label={t('isolationPoints', workLang)} value={permit.isolationPoints} editable={isSourceEditable && !permit.permitNumber} onChange={(v) => setFormData((f) => ({ ...f, isolationPoints: v }))} full />
-              <WorkField label={t('sourceSwitches', workLang)} value={permit.sourceSwitches} editable={isSourceEditable && !permit.permitNumber} onChange={(v) => setFormData((f) => ({ ...f, sourceSwitches: v }))} full />
+            <div style={{ marginTop: 8, fontSize: 12 }}>
+              <WorkField label={t('workDescription', 'ar')} value={permit.workDescription} editable={sourceSectionEditable} onChange={(v) => setFormData((f) => ({ ...f, workDescription: v }))} full />
+              {/* نقاط العزل ومفاتيح المصدر تُعرض كـ Badges منفصلة (وليس نصًا حرًا متصلًا في
+                  حقل واحد) حسب دليل التصميم - كل نقطة/مفتاح عنصر مستقل يُضاف ويُحذف بمفرده. */}
+              <BadgeChipField label={t('isolationPoints', 'ar')} value={permit.isolationPoints} editable={sourceSectionEditable} onChange={(v) => setFormData((f) => ({ ...f, isolationPoints: v }))} full />
             </div>
           </section>
+          {wizardMode && showStep(STEP_WORK) && (
+            <WizardNav onNext={() => setCurrentStep(STEP_SOURCE)} />
+          )}
 
-          {/* قسم المصدر */}
+          {/* قسما المصدر والمستلم يظهران جنبًا إلى جنب من عرض اللابتوب فأعلى - في شاشة العرض
+              النهائية دائمًا، أو أثناء الويزار تحديدًا فقط بخطوة "مراجعة" (STEP_ISSUE) حيث
+              يظهر القسمان معًا فعليًا كتذكير؛ في بقية خطوات الويزار يظهر قسم واحد فقط في كل
+              مرة فيبقى عمودًا واحدًا (لا فائدة من شبكة عمودين وأحدهما فارغ/مخفي). */}
+          <div className={(!wizardMode || currentStep === STEP_ISSUE) ? 'responsive-grid-2col-lg' : undefined}>
+          {/* 2) قسم المصدر: أحمر حتى تُستكمل بنود السلامة ثم يتحول أخضر - بوابة إقرار الاطلاع
+              على تعليمات السلامة تسبق فتح القسم فعليًا لأول مرة، وتختفي بعد تأكيدها لهذا القسم. */}
+          <div style={{ display: (wizardMode ? (showStep(STEP_SOURCE) || showStep(STEP_ISSUE)) : showView(VIEW_PAGE_WORK)) ? undefined : 'none' }}>
+          {sourceSectionEditable && !ackSource ? (
+            <SafetyAcknowledgmentGate permitType={permit.permitType} onAcknowledge={() => setAckSource(true)} />
+          ) : (
           <PartySection
             title="بيانات المصدر / Issuer Data"
+            theme={sourceTheme}
+            /* بنود السلامة تظهر فقط عند الإصدار الفعلي (خطوة المصدر) وعند الإغلاق - لا تُعاد
+               بلا داعٍ كبطاقة تذكيرية عند خطوة "مراجعة واعتماد" (STEP_ISSUE) حيث كل ما
+               يحتاجه المصدر هناك هو توليد الرقم فقط، لا مراجعة بنود سبق تأكيدها بالفعل. */
+            checklist={wizardMode && currentStep === STEP_ISSUE ? null : (
+              <SafetyChecklistSection
+                permitType={permit.permitType}
+                stage="المصدر"
+                checkedMap={checkedMap}
+                readOnly={!sourceSectionEditable}
+                onToggle={(row, v) => setCheckedMap((m) => ({ ...m, [row]: v }))}
+                onCompletionChange={setSourceChecklistComplete}
+              />
+            )}
             employeeId={permit.source.employeeId}
             fullName={permit.source.fullName}
             mobile={permit.source.mobile}
+            cardRemainingDays={permit.source.cardRemainingDays}
+            cardExpiry={permit.source.cardExpiry}
             dateTime={permit.source.transferDateTime}
             gps={permit.source.transferGps}
             savedSignature={permit.source.transferSignature}
-            editable={isSourceEditable && !permit.source.transferDateTime}
+            editable={sourceSectionEditable}
             signature={signature}
             onSignatureChange={setSignature}
+            extraFields={[
+              { label: t('sourceLockNumber', 'ar'), value: permit.sourceLockNumber, onChange: (v) => setFormData((f) => ({ ...f, sourceLockNumber: v })), icon: <Icon name="lock" size={12} /> },
+              { label: t('authorityOfficialName', 'ar'), value: permit.authorityOfficialName, onChange: (v) => setFormData((f) => ({ ...f, authorityOfficialName: v })), icon: <Icon name="person" size={12} /> },
+              {
+                label: t('authorityType', 'ar'), value: permit.authorityType,
+                onChange: (v) => setFormData((f) => ({ ...f, authorityType: v })),
+                type: 'select', options: authorityTypeOptions, icon: <Icon name="domain" size={12} />
+              }
+            ]}
           >
-            {isSourceEditable && !permit.source.transferDateTime && (
-              <SafetyChecklistSection permitType={permit.permitType} stage="المصدر" checkedMap={checkedMap} onToggle={(row, v) => setCheckedMap((m) => ({ ...m, [row]: v }))} />
+            {sourceSectionEditable && (
+              <button
+                disabled={busy || !signature} onClick={handleSendToReceiver}
+                style={{ marginTop: 10, color: '#fff', background: sourceChecklistComplete ? 'var(--color-secondary)' : 'var(--color-primary)' }}
+              >
+                {/* الزر يبقى معطّلًا لثوانٍ فعليًا أثناء تحديد GPS الدقيق (إلزامي، بلا تخزين
+                    مؤقت - قرار صريح) - نص "جارٍ..." يوضّح أن الضغطة سُجِّلت وأن العملية قيد
+                    التنفيذ فعلًا، بدل أن يبدو الزر بلا أي استجابة أثناء الانتظار. */}
+                {busy ? 'جارٍ تحديد الموقع والإرسال...' : t('shareWithReceiver', 'ar')}
+              </button>
             )}
-            {isSourceEditable && !permit.source.transferDateTime && (
-              <button className="primary" disabled={busy} onClick={handleSendToReceiver} style={{ marginTop: 10 }}>إرسال للمستلم</button>
+            {/* زر دائم لإعادة عرض بيانات المشاركة (الرابط + الرمز السري) في أي وقت لاحق -
+                حتى بعد إغلاق/تحديث الصفحة، بعكس البانر اللحظي الذي يظهر مرة واحدة فقط
+                عند الإرسال ثم يختفي نهائيًا إن أُغلقت الصفحة. */}
+            {!sourceSectionEditable && permit.source.transferDateTime && !sentSecretCode && (isSourceEditable || accessMode === ACCESS_MODE.ADMIN_FULL) && (
+              <button disabled={shareSecretLoading} onClick={handleShowShareInfo} className="no-print secondary" style={{ marginTop: 10 }}>
+                {shareSecretLoading ? 'جارٍ التحميل...' : 'عرض بيانات المشاركة'}
+              </button>
+            )}
+            {sentSecretCode && (
+              <>
+                <SharePanel
+                  permitLink={permit.permitLink}
+                  secretCode={sentSecretCode}
+                  secretNote="لا تُرسل هذا الرمز ولا رقم البرنامج التشغيلي ضمن رسالة المشاركة - أبلغهما للمستلم الفعلي شفهيًا (هاتفيًا) فقط، وليس ضمن الرابط نفسه."
+                  onCopy={copyPermitLink}
+                  copied={linkCopied}
+                />
+                <button onClick={handleShareWhatsApp} className="no-print" style={{ marginTop: 8, background: '#25D366', color: '#fff' }}>
+                  مشاركة عبر واتساب
+                </button>
+              </>
             )}
             {isSourceEditable && permit.status === 'بانتظار اعتماد المصدر' && (
-              <button className="primary" disabled={busy} onClick={handleApprove} style={{ marginTop: 10 }}>مراجعة واعتماد وتوليد رقم التصريح</button>
+              <button className="primary" disabled={busy || !permit.source.transferSignature} onClick={handleApprove} style={{ marginTop: 10 }}>{busy ? 'جارٍ التنفيذ...' : 'مراجعة واعتماد وتوليد رقم التصريح'}</button>
             )}
           </PartySection>
+          )}
+          </div>
 
-          {/* قسم المستلم */}
-          <PartySection
-            title="بيانات المستلم / Receiver Data"
-            employeeId={permit.receiver.employeeId}
-            fullName={permit.receiver.fullName}
-            mobile={permit.receiver.mobile}
-            dateTime={permit.receiver.receiveDateTime}
-            gps={permit.receiver.receiveGps}
-            savedSignature={permit.receiver.receiveSignature}
-            editable={isReceiverEditable && !permit.receiver.receiveDateTime}
-            signature={signature}
-            onSignatureChange={setSignature}
-          >
-            {isReceiverEditable && !permit.receiver.receiveDateTime && (
-              <SafetyChecklistSection permitType={permit.permitType} stage="المستلم" checkedMap={checkedMap} onToggle={(row, v) => setCheckedMap((m) => ({ ...m, [row]: v }))} />
-            )}
-            {isReceiverEditable && !permit.receiver.receiveDateTime && (
-              <button className="primary" disabled={busy} onClick={handleReceiverSubmit} style={{ marginTop: 10 }}>تأكيد الاستلام والتوقيع</button>
-            )}
-            {isReceiverEditable && permit.status === 'نشط' && !permit.receiver.closeDateTime && (
-              <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
-                <button className="primary" disabled={busy} onClick={() => handleReceiverClose('CLOSE')}>إغلاق التصريح</button>
-                <button disabled={busy} onClick={() => handleReceiverClose('CANCEL')} style={{ background: 'var(--color-error)', color: '#fff' }}>إلغاء التصريح</button>
-              </div>
-            )}
-          </PartySection>
-
-          {/* إغلاق المصدر النهائي */}
-          {(permit.status === 'بانتظار إغلاق المصدر' || permit.status === 'بانتظار تأكيد الإلغاء من المصدر' || permit.closingSource.closeDateTime) && (
+          {/* 3) قسم استلام المستلم - أصفر، يظهر فقط بعد تحويل المصدر للتصريح أو لمن هو مستلم/مدير */}
+          <div style={{ display: (wizardMode ? (showStep(STEP_RECEIVER) || showStep(STEP_ISSUE)) : showView(VIEW_PAGE_WORK)) ? undefined : 'none' }}>
+          {showReceiverReceiveSection && (
+            receiverReceiveEditable && !ackReceiver ? (
+              <SafetyAcknowledgmentGate permitType={permit.permitType} onAcknowledge={() => setAckReceiver(true)} />
+            ) : (
             <PartySection
-              title="إغلاق المصدر النهائي / Final Issuer Close-out"
-              employeeId={permit.closingSource.employeeId}
-              fullName={permit.closingSource.fullName}
-              dateTime={permit.closingSource.closeDateTime}
-              gps={permit.closingSource.closeGps}
-              savedSignature={permit.closingSource.closeSignature}
-              editable={isSourceCloseEditable && !permit.closingSource.closeDateTime}
+              title="بيانات المستلم (الاستلام) / Receiver Data"
+              theme={THEMES.yellow}
+              checklist={wizardMode && currentStep === STEP_ISSUE ? null : (
+                <SafetyChecklistSection
+                  permitType={permit.permitType}
+                  stage="المستلم"
+                  checkedMap={checkedMap}
+                  readOnly={!receiverReceiveEditable}
+                  onToggle={(row, v) => setCheckedMap((m) => ({ ...m, [row]: v }))}
+                />
+              )}
+              /* قبل تأكيد الاستلام فعليًا، سجلّ "المستلم" بالتصريح نفسه لا يزال فارغًا في
+                 الخادم (لم يُكتب بعد) - تُعرض بيانات المستخدم الحالي (currentUser، من
+                 جلسة الوصول للرابط) بدلًا منها مؤقتًا، وإلا تظهر بطاقة الموظف فارغة تمامًا
+                 حتى لو كان المستلم موظفًا حقيقيًا معروفًا (وحتى لو كان نفس شخص المصدر). */
+              employeeId={receiverReceiveEditable ? (currentUser ? currentUser.employeeId : '') : permit.receiver.employeeId}
+              fullName={receiverReceiveEditable ? (currentUser ? currentUser.fullName : '') : permit.receiver.fullName}
+              mobile={receiverReceiveEditable ? (currentUser ? currentUser.mobile : '') : permit.receiver.mobile}
+              cardRemainingDays={receiverReceiveEditable ? (currentUser ? currentUser.receiverCardRemainingDays : '') : permit.receiver.cardRemainingDays}
+              cardExpiry={receiverReceiveEditable ? (currentUser ? currentUser.receiverCardExpiry : '') : permit.receiver.cardExpiry}
+              dateTime={permit.receiver.receiveDateTime}
+              gps={permit.receiver.receiveGps}
+              savedSignature={permit.receiver.receiveSignature}
+              editable={receiverReceiveEditable}
+              signature={signature}
+              onSignatureChange={setSignature}
+              extraFields={[
+                { label: t('receiverLockNumber', 'ar'), value: permit.receiverLockNumber, onChange: (v) => setFormData((f) => ({ ...f, receiverLockNumber: v })), icon: <Icon name="lock" size={12} /> },
+                {
+                  label: t('receiverEntityType', 'ar'), value: permit.receiverEntityType,
+                  onChange: (v) => setFormData((f) => ({ ...f, receiverEntityType: v })),
+                  type: 'select', options: receiverEntityOptions, icon: <Icon name="domain" size={12} />
+                }
+              ]}
+            >
+              {receiverReceiveEditable && (
+                <button className="primary" disabled={busy || !signature} onClick={handleReceiverSubmit} style={{ marginTop: 10 }}>{busy ? 'جارٍ التنفيذ...' : 'تأكيد الاستلام والتوقيع'}</button>
+              )}
+            </PartySection>
+            )
+          )}
+          </div>
+          </div>
+          {wizardMode && showStep(STEP_SOURCE) && (
+            <WizardNav onBack={() => setCurrentStep(STEP_WORK)} />
+          )}
+          {wizardMode && showStep(STEP_RECEIVER) && (
+            <WizardNav onBack={() => setCurrentStep(STEP_SOURCE)} />
+          )}
+          {wizardMode && showStep(STEP_ISSUE) && (
+            <WizardNav onBack={() => setCurrentStep(STEP_RECEIVER)} />
+          )}
+          {/* تنقّل صفحات شاشة العرض النهائية: من "صفحة 1: بيانات المهمة" إلى "صفحة 2: الإغلاق" */}
+          {!wizardMode && showView(VIEW_PAGE_WORK) && (
+            <WizardNav onNext={() => setViewPage(VIEW_PAGE_CLOSE)} />
+          )}
+
+          {/* تأكيد نقل التصريح لمستلم جديد (وردية) - يظهر فقط للمستلم الجديد المُسمّى في طلب نقل بانتظار التأكيد */}
+          {permit.pendingHandover && currentUser && String(permit.pendingHandover['الرقم الوظيفي للمستلم الجديد']) === String(currentUser.employeeId) && (
+            <section className="no-print" style={{ marginTop: 16, border: '2px solid ' + THEMES.yellow.border, borderRadius: 'var(--radius-lg)', overflow: 'hidden' }}>
+              <div style={{ background: THEMES.yellow.headerBg, color: THEMES.yellow.headerText, padding: '8px 12px', fontWeight: 'bold', fontSize: 13 }}>
+                تأكيد استلام التصريح كمستلم جديد (نقل وردية)
+              </div>
+              <div style={{ padding: 12 }}>
+                <div style={{ fontSize: 12, marginBottom: 8 }}>تم تسمية رقمك الوظيفي كمستلم جديد لهذا التصريح من قبل المستلم الحالي. وقّع لتأكيد استلامك.</div>
+                <SignaturePad onChange={setHandoverSignature} />
+                <button className="primary" disabled={busy || !handoverSignature} onClick={handleConfirmHandover} style={{ marginTop: 10 }}>تأكيد الاستلام</button>
+              </div>
+            </section>
+          )}
+
+          {/* رأس "صفحة الإغلاق" في شاشة العرض النهائية المُقسَّمة (صفحة 2 من 4) - تذكير
+              سريع ببيانات المهمة قبل عرض تفاصيل الإغلاق نفسها. فاصل شاشة فقط، لا علاقة له
+              بالطباعة/PDF الفعلية (مكوّن مستقل بذاته PermitPrint بصفحاته الأربع الثابتة). */}
+          {(showReceiverCloseSection && !wizardMode && showView(VIEW_PAGE_CLOSE)) && (
+            <div style={{ marginTop: 24, paddingTop: 14, borderTop: '3px dashed #bbb' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10, color: '#888', marginBottom: 8 }}>
+                <span>{permit.permitNumber || permit.creationId}</span>
+                <span>الصفحة 2 من 4</span>
+              </div>
+              <div style={{ background: WORK_FIELD_LABEL_BG, borderRadius: 10, padding: 10 }}>
+                <div style={{ fontWeight: 'bold', fontSize: 12, color: WORK_FIELD_LABEL_TEXT }}>بيانات العمل (تذكير)</div>
+                <div style={{ fontSize: 10, opacity: 0.75, marginBottom: 6 }}>Work Data (Recap)</div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 6, fontSize: 11, fontWeight: 'bold' }}>
+                  <div>{t('location', 'ar')}: {permit.location || '—'}</div>
+                  <div>{t('circuit', 'ar')}: {permit.circuit || '—'}</div>
+                  <div>{t('unit', 'ar')}: {permit.unit || '—'}</div>
+                  <div>{t('station', 'ar')}: {permit.station || '—'}</div>
+                  <div>{t('feeder', 'ar')}: {permit.feeder || '—'}</div>
+                  <div>{t('permitNumber', 'ar')}: {permit.permitNumber || '—'}</div>
+                </div>
+                <div style={{ fontSize: 11, fontWeight: 'bold', marginTop: 6 }}>{t('workDescription', 'ar')}: {permit.workDescription || '—'}</div>
+              </div>
+            </div>
+          )}
+
+          {/* 4) قسم إغلاق/إلغاء المستلم - منفصل، يظهر فقط بعد اعتماد المصدر وتوليد رقم التصريح،
+              وفي وضع الويزار تحديدًا فقط عند الوصول لخطوة الإغلاق (لا يظهر مبكرًا ضمن خطوات
+              العمل/المصدر/المستلم/المراجعة حتى لو كانت الحالة تسمح تقنيًا بالتعديل). */}
+          {showReceiverCloseSection && (wizardMode ? showStep(STEP_CLOSE) : showView(VIEW_PAGE_CLOSE)) && (
+            receiverCloseEditable && !ackReceiverClose ? (
+              <SafetyAcknowledgmentGate permitType={permit.permitType} onAcknowledge={() => setAckReceiverClose(true)} />
+            ) : (
+            <PartySection
+              title="إغلاق/إلغاء التصريح بواسطة المستلم / Closing or Cancelling by Receiver"
+              theme={THEMES.yellow}
+              checklist={(
+                <SafetyChecklistSection
+                  permitType={permit.permitType}
+                  stage="إغلاق المستلم"
+                  checkedMap={checkedMap}
+                  readOnly={!receiverCloseEditable}
+                  onToggle={(row, v) => setCheckedMap((m) => ({ ...m, [row]: v }))}
+                />
+              )}
+              employeeId={permit.receiver.employeeId}
+              fullName={permit.receiver.fullName}
+              dateTime={permit.receiver.closeDateTime}
+              gps={permit.receiver.closeGps}
+              savedSignature={permit.receiver.closeSignature}
+              editable={receiverCloseEditable}
               signature={signature}
               onSignatureChange={setSignature}
             >
-              {isSourceCloseEditable && !permit.closingSource.closeDateTime && (
-                <button className="primary" disabled={busy} onClick={handleSourceClose} style={{ marginTop: 10 }}>
-                  إتمام الإغلاق النهائي
+              {receiverCloseEditable && !showCancelReason && (
+                <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
+                  <button className="primary" disabled={busy || !signature} onClick={() => handleReceiverClose('CLOSE')}>{busy ? 'جارٍ الإغلاق...' : 'إغلاق التصريح'}</button>
+                  <button disabled={busy} onClick={() => setShowCancelReason(true)} style={{ background: 'var(--color-error)', color: '#fff' }}>إلغاء التصريح</button>
+                </div>
+              )}
+              {receiverCloseEditable && showCancelReason && (
+                <div style={{ marginTop: 10 }}>
+                  <div style={{ fontSize: 12, fontWeight: 'bold', marginBottom: 4 }}>{t('cancellationReason', 'ar')}</div>
+                  <input type="text" style={{ width: '100%' }} value={cancelReason} onChange={(e) => setCancelReason(normalizeMixedInput(e.target.value))} />
+                  <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+                    <button disabled={busy || !cancelReason || !signature} onClick={() => handleReceiverClose('CANCEL')} style={{ background: 'var(--color-error)', color: '#fff' }}>تأكيد الإلغاء</button>
+                    <button className="secondary" disabled={busy} onClick={() => setShowCancelReason(false)}>تراجع</button>
+                  </div>
+                </div>
+              )}
+              {sentCloseSecretCode && (
+                <>
+                  <div style={{ fontSize: 12, fontWeight: 'bold', marginTop: 10 }}>{t('shareWithSourceForClosing', 'ar')}</div>
+                  <SharePanel
+                    permitLink={permit.permitLink}
+                    secretCode={sentCloseSecretCode}
+                    secretNote="لا تُرسل هذا الرمز ولا رقم البرنامج التشغيلي ضمن رسالة المشاركة - أبلغهما للمصدر الفعلي الذي سيتولى الإغلاق شفهيًا (هاتفيًا) فقط، إن لم يكن هو المصدر الأصلي."
+                    onCopy={copyPermitLink}
+                    copied={linkCopied}
+                  />
+                </>
+              )}
+            </PartySection>
+            )
+          )}
+
+          {/* نقل التصريح لمستلم آخر (تبديل وردية) - زر مطوي بدل قسم دائم الظهور، لأن أغلب
+              التصاريح لا تحتاج نقل وردية إطلاقًا؛ يفتح النموذج فقط عند الاستخدام الفعلي.
+              مخفي تمامًا عند الطباعة/PDF (إجراء إدخال حي وليس جزءًا من السجل النهائي -
+              سجل النقل الفعلي إن حدث يظهر في الجدول التاريخي أدناه بغض النظر عن هذا الزر). */}
+          {receiverCloseEditable && !permit.pendingHandover && (wizardMode ? showStep(STEP_CLOSE) : showView(VIEW_PAGE_CLOSE)) && (
+            <div className="no-print" style={{ marginTop: 16 }}>
+              {!showHandoverForm ? (
+                <button onClick={() => setShowHandoverForm(true)} style={{ background: THEMES.neutral.badgeBg, color: THEMES.neutral.badgeText }}>
+                  {t('handoverTitle', 'ar')}
+                </button>
+              ) : (
+                <section style={{ border: '2px solid ' + THEMES.neutral.border, borderRadius: 'var(--radius-lg)', overflow: 'hidden' }}>
+                  <div style={{ background: THEMES.neutral.headerBg, color: THEMES.neutral.headerText, padding: '8px 12px', fontWeight: 'bold', fontSize: 13 }}>
+                    {t('handoverTitle', 'ar')}
+                  </div>
+                  <div style={{ padding: 12 }}>
+                    <div style={{ fontWeight: 'bold', marginBottom: 4, fontSize: 12 }}>{t('newReceiverId', 'ar')}</div>
+                    <input
+                      type="text" inputMode="numeric" style={{ width: '100%' }}
+                      value={handoverNewReceiverId}
+                      onChange={(e) => setHandoverNewReceiverId(sanitizeDigitsOnly(e.target.value))}
+                    />
+                    <div style={{ marginTop: 8 }}>
+                      <div style={{ fontSize: 12, fontWeight: 'bold', marginBottom: 4 }}>{t('signature', 'ar')}</div>
+                      <SignaturePad onChange={setHandoverSignature} />
+                    </div>
+                    <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
+                      <button className="primary" disabled={busy || !handoverNewReceiverId || !handoverSignature} onClick={handleInitiateHandover}>
+                        تسليم التصريح للمستلم الجديد
+                      </button>
+                      <button className="secondary" disabled={busy} onClick={() => setShowHandoverForm(false)}>تراجع</button>
+                    </div>
+                  </div>
+                </section>
+              )}
+            </div>
+          )}
+          {permit.pendingHandover && (wizardMode ? showStep(STEP_CLOSE) : showView(VIEW_PAGE_CLOSE)) && (
+            <div className="app-card no-print" style={{ marginTop: 12, fontSize: 12, textAlign: 'center' }}>
+              بانتظار تأكيد استلام المستلم الجديد (الرقم الوظيفي: {permit.pendingHandover['الرقم الوظيفي للمستلم الجديد']})
+            </div>
+          )}
+
+          {/* سجل نقل المستلم بين الورديات - مطابق لجدول Out Going/In Coming الورقي */}
+          {permit.receiverHandovers && permit.receiverHandovers.length > 0 && (wizardMode ? showStep(STEP_CLOSE) : showView(VIEW_PAGE_CLOSE)) && (
+            <section style={{ marginTop: 16 }}>
+              <strong style={{ fontSize: 13, color: 'var(--color-primary)' }}>{t('handoverHistory', 'ar')}</strong>
+              <div className="table-scroll-wrap" style={{ marginTop: 6 }}>
+                <table className="app-table">
+                  <thead>
+                    <tr>
+                      <th>{t('outgoingReceiver', 'ar')}</th>
+                      <th>{t('dateTime', 'ar')}</th>
+                      <th>{t('incomingReceiver', 'ar')}</th>
+                      <th>{t('dateTime', 'ar')}</th>
+                      <th>{t('status', 'ar')}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {permit.receiverHandovers.map((h) => (
+                      <tr key={h.transferId}>
+                        <td>{h.outgoingName} ({h.outgoingEmployeeId})</td>
+                        <td>{formatDateTimeShort(h.outgoingDateTime)}</td>
+                        <td>{h.incomingName} ({h.incomingEmployeeId})</td>
+                        <td>{formatDateTimeShort(h.incomingDateTime) || '—'}</td>
+                        <td>{h.status}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </section>
+          )}
+
+          {/* 5) إغلاق المصدر النهائي - يُفتح فقط بعد إغلاق/إلغاء المستلم */}
+          {showSourceCloseSection && (wizardMode ? showStep(STEP_CLOSE) : showView(VIEW_PAGE_CLOSE)) && (
+            sourceCloseEditable && !ackSourceClose ? (
+              <SafetyAcknowledgmentGate permitType={permit.permitType} onAcknowledge={() => setAckSourceClose(true)} />
+            ) : (
+            // قبل تنفيذ الإغلاق فعليًا permit.closingSource ما زال فارغًا (لا يُعبَّأ إلا بعد
+            // closeBySource) - تُعرض هوية المستخدم الحالي (currentUser) بدلًا منه أثناء
+            // التعبئة، وبيانات closingSource المحفوظة فعليًا بعد الإغلاق.
+            <PartySection
+              title="إغلاق المصدر النهائي / Final Issuer Close-out"
+              theme={sourceCloseTheme}
+              checklist={(
+                <SafetyChecklistSection
+                  permitType={permit.permitType}
+                  stage="إغلاق المصدر"
+                  checkedMap={checkedMap}
+                  readOnly={!sourceCloseEditable}
+                  onToggle={(row, v) => setCheckedMap((m) => ({ ...m, [row]: v }))}
+                />
+              )}
+              employeeId={sourceCloseEditable ? (currentUser ? currentUser.employeeId : '') : permit.closingSource.employeeId}
+              fullName={sourceCloseEditable ? (currentUser ? currentUser.fullName : '') : permit.closingSource.fullName}
+              mobile={sourceCloseEditable ? (currentUser ? currentUser.mobile : '') : permit.closingSource.mobile}
+              cardRemainingDays={sourceCloseEditable ? (currentUser ? currentUser.issuerCardRemainingDays : '') : permit.closingSource.cardRemainingDays}
+              cardExpiry={sourceCloseEditable ? (currentUser ? currentUser.issuerCardExpiry : '') : permit.closingSource.cardExpiry}
+              dateTime={permit.closingSource.closeDateTime}
+              gps={permit.closingSource.closeGps}
+              savedSignature={permit.closingSource.closeSignature}
+              editable={sourceCloseEditable}
+              signature={signature}
+              onSignatureChange={setSignature}
+              extraFields={[
+                { label: t('sourceLockNumber', 'ar'), value: permit.sourceLockNumber, onChange: () => {}, icon: <Icon name="lock" size={12} /> },
+                { label: t('authorityOfficialName', 'ar'), value: permit.authorityOfficialName, onChange: () => {}, icon: <Icon name="person" size={12} /> }
+              ]}
+            >
+              {sourceCloseEditable && (
+                <button className="primary" disabled={busy || !signature} onClick={handleSourceClose} style={{ marginTop: 10 }}>
+                  {busy ? 'جارٍ الإغلاق...' : 'إتمام الإغلاق النهائي'}
                 </button>
               )}
             </PartySection>
+            )
+          )}
+          {/* زر "السابق" في خطوة الإغلاق يعود لمراجعة بيانات المستلم فقط للاطلاع - قسم الإغلاق
+              نفسه يبقى بحالته (مفتوح/مغلق) بحسب حالة التصريح الفعلية بغض النظر عن التنقل. */}
+          {wizardMode && showStep(STEP_CLOSE) && (
+            <WizardNav onBack={() => setCurrentStep(STEP_ISSUE)} />
+          )}
+          {/* تنقّل صفحات شاشة العرض النهائية: من "صفحة 2: الإغلاق" إلى "صفحة 3: رحلة التصريح" */}
+          {!wizardMode && showView(VIEW_PAGE_CLOSE) && (
+            <WizardNav onBack={() => setViewPage(VIEW_PAGE_WORK)} onNext={() => setViewPage(VIEW_PAGE_JOURNEY)} />
+          )}
+
+          {/* جدولا الملخص النهائي (هوية/تواقيع + جدول زمني) - جزء من "صفحة 3: رحلة التصريح"
+              في شاشة العرض النهائية المُقسَّمة، يظهران فقط بعد إغلاق/إلغاء التصريح فعليًا. */}
+          {showFinalInstructions && showView(VIEW_PAGE_JOURNEY) && <SummaryTables permit={permit} />}
+          {!wizardMode && showView(VIEW_PAGE_JOURNEY) && (
+            <WizardNav onBack={() => setViewPage(VIEW_PAGE_CLOSE)} onNext={() => setViewPage(VIEW_PAGE_SAFETY)} />
           )}
 
           {error && <div style={{ color: 'var(--color-error)', fontSize: 12, marginTop: 10 }}>{error}</div>}
         </div>
       </div>
 
-      <div className="no-print" style={{ display: 'flex', justifyContent: 'center', gap: 10, marginTop: 8 }}>
-        <ZoomControls scale={scale} onZoomIn={zoomIn} onZoomOut={zoomOut} onReset={resetZoom} />
-        <button onClick={handlePrint} style={{ background: 'var(--color-secondary)', color: '#fff', alignSelf: 'flex-start', marginTop: 12 }}>
-          طباعة / تنزيل PDF
-        </button>
-      </div>
-
-      <div className="no-print">
-        {showFinalInstructions && <SafetyInstructionsPage permitType={permit.permitType} />}
-      </div>
-    </div>
-  );
-}
-
-function WorkField({ label, value, editable, onChange, full }) {
-  return (
-    <div style={{ gridColumn: full ? '1 / -1' : undefined }}>
-      <div style={{ fontWeight: 'bold', marginBottom: 2 }}>{label}</div>
-      {editable ? (
-        <input type="text" style={{ width: '100%' }} defaultValue={value || ''} onChange={(e) => onChange(e.target.value)} />
-      ) : (
-        <div style={{ minHeight: 18, borderBottom: '1px dotted #ccc' }}>{value || '—'}</div>
-      )}
-    </div>
-  );
-}
-
-function PartySection({ title, employeeId, fullName, mobile, dateTime, gps, savedSignature, editable, signature, onSignatureChange, children }) {
-  return (
-    <section style={{ marginTop: 16, borderTop: '1px solid #eee', paddingTop: 12 }}>
-      <strong style={{ fontSize: 13, color: 'var(--color-primary)' }}>{title}</strong>
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginTop: 8, fontSize: 12 }}>
-        <div><strong>{t('employeeId', 'ar')}:</strong> {employeeId || '—'}</div>
-        <div><strong>{t('fullName', 'ar')}:</strong> {fullName || '—'}</div>
-        {mobile !== undefined && <div><strong>{t('mobile', 'ar')}:</strong> {mobile || '—'}</div>}
-        <BilingualDateField label={t('dateTime', 'ar')} value={dateTime} />
-        {gps && <div style={{ gridColumn: '1 / -1' }}><strong>{t('gps', 'ar')}:</strong> {gps}</div>}
-      </div>
-
-      {editable ? (
-        <div style={{ marginTop: 8 }}>
-          <div style={{ fontSize: 12, fontWeight: 'bold', marginBottom: 4 }}>{t('signature', 'ar')}</div>
-          <SignaturePad onChange={onSignatureChange} />
+      {/* تصدير PDF متاح فقط بعد إغلاق/إلغاء التصريح فعليًا - قبل ذلك التصريح لا يزال قيد
+          التنفيذ ولا يمثّل مستندًا نهائيًا جاهزًا للأرشفة. تنزيل مباشر لملف PDF حقيقي -
+          بدون المرور بنافذة طباعة المتصفح إطلاقًا (انظر utils/pdfExport.js). ثابت أسفل
+          الشاشة (sticky) بدل الاختفاء مع التمرير عند وصول المستخدم لنهاية الصفحة. */}
+      {showFinalInstructions && (
+        <div
+          className="no-print"
+          style={{
+            position: 'sticky', bottom: 0, display: 'flex', justifyContent: 'center', alignItems: 'center',
+            padding: '10px 0', marginTop: 8, background: 'linear-gradient(to top, var(--color-background) 70%, transparent)'
+          }}
+        >
+          <button disabled={pdfExporting} onClick={() => setShowPrintLangPrompt(true)} style={{ background: 'var(--color-secondary)', color: '#fff', boxShadow: '0 2px 10px rgba(0,0,0,0.15)' }}>
+            {pdfExporting ? 'جارٍ تجهيز الملف...' : 'تنزيل PDF'}
+          </button>
         </div>
-      ) : (
-        savedSignature && (
-          <div style={{ marginTop: 8 }}>
-            <div style={{ fontSize: 12, fontWeight: 'bold' }}>{t('signature', 'ar')}</div>
-            <img src={savedSignature} alt="التوقيع" style={{ height: 60 }} />
-          </div>
-        )
       )}
-      {children}
-    </section>
+
+      {/* صفحة تعليمات السلامة النهائية (على الشاشة فقط الآن) - "صفحة 4" في شاشة العرض
+          النهائية المُقسَّمة. نسخة الطباعة/PDF منها تعيش داخل PermitPrint (الصفحة 4) حصرًا،
+          وليست هذه النسخة الشاشية. */}
+      {showFinalInstructions && showView(VIEW_PAGE_SAFETY) && (
+        <>
+          <SafetyInstructionsPage permitType={permit.permitType} lang={printLang} onLangChange={setPrintLang} />
+          <div className="no-print" style={{ maxWidth: 700, margin: '0 auto' }}>
+            <WizardNav onBack={() => setViewPage(VIEW_PAGE_JOURNEY)} />
+          </div>
+        </>
+      )}
+
+      {showPrintLangPrompt && (
+        <div className="no-print" style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: 16 }}>
+          <div className="app-card" style={{ maxWidth: 340, width: '100%', textAlign: 'center' }}>
+            <h3 style={{ fontSize: 14, margin: '0 0 4px' }}>اختر لغة تعليمات السلامة في ملف PDF</h3>
+            <div style={{ fontSize: 11, color: '#888', marginBottom: 10 }}>Choose the safety instructions language for the PDF file</div>
+            <div style={{ display: 'flex', gap: 10, justifyContent: 'center' }}>
+              <button className="primary" onClick={() => confirmPrintLang('ar')}>تنزيل بالعربية</button>
+              <button className="secondary" onClick={() => confirmPrintLang('en')}>Download in English</button>
+            </div>
+            <button onClick={() => setShowPrintLangPrompt(false)} style={{ marginTop: 10, background: '#eee', color: '#333' }}>إلغاء</button>
+          </div>
+        </div>
+      )}
+    </div>
+
+    {/* مستند الطباعة/PDF الفعلي - مكوّن مستقل تمامًا (صفحتا A4 ثابتتان)، مخفي بالكامل على
+        الشاشة (screen:none) ولا يظهر إلا عند الطباعة الفعلية (@media print). */}
+    {showFinalInstructions && (
+      <PermitPrint permit={permit} companyName={companyName} printLang={printLang} />
+    )}
+    </>
   );
 }
 
-function distanceBetween(t1, t2) {
-  return Math.hypot(t2.clientX - t1.clientX, t2.clientY - t1.clientY);
-}

@@ -59,7 +59,12 @@ export async function registerDeviceBiometric(employeeId, deviceName) {
         { type: 'public-key', alg: -7 },
         { type: 'public-key', alg: -257 }
       ],
-      authenticatorSelection: { authenticatorAttachment: 'platform', userVerification: 'required' },
+      // لا نُقيّد نوع المصادِق (authenticatorAttachment) إلى "platform" فقط - هذا كان يمنع
+      // التسجيل نهائيًا على أي جهاز/متصفح لا يوجد فيه بصمة/Windows Hello مُفعَّلة محليًا،
+      // بينما تركه مفتوحًا يسمح للمتصفح باستخدام بديل مناسب تلقائيًا (مثل مفتاح مرور
+      // Google Password Manager المتزامن، أو الهاتف عبر Bluetooth/QR) - يبقى المصادقة
+      // البيومترية (بصمة/PIN) إجبارية دائمًا عبر userVerification: 'required'.
+      authenticatorSelection: { userVerification: 'required' },
       timeout: 60000,
       attestation: 'none'
     }

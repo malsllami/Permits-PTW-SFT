@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { getDashboardStats } from '../../services/settingsService.js';
+import { formatDateTimeShort } from '../../hooks/useHijriGregorianDate.js';
 
 export default function AdminDashboardPage() {
   const [stats, setStats] = useState(null);
@@ -46,7 +47,7 @@ export default function AdminDashboardPage() {
                   <td>{op['العملية']}</td>
                   <td>{op['الاسم']}</td>
                   <td>{op['الدور']}</td>
-                  <td>{op['التاريخ والوقت']}</td>
+                  <td>{formatDateTimeShort(op['التاريخ والوقت'])}</td>
                 </tr>
               ))}
             </tbody>
