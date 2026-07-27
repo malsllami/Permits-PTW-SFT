@@ -10,12 +10,32 @@ function openInstructionsWindow(instructions, permitType) {
   const win = window.open('', '_blank');
   if (!win) return;
   const rows = instructions.map((item) => '<li>' + (item.textAr || '') + '</li>').join('');
+  // زر تكبير الخط يدور بين 3 مقاسات ثم يعود للحجم الافتراضي - صفحة مستقلة تمامًا (خارج
+  // تطبيق React)، فالتحكم بحجم الخط هنا عبر متغيّر CSS بسيط يُحدَّث بجافاسكربت خام لا يعتمد
+  // على أي مكتبة، ويختفي زر التحكم تلقائيًا عند الطباعة الفعلية لهذه الصفحة (Ctrl+P).
   win.document.write(
     '<!DOCTYPE html><html lang="ar" dir="rtl"><head><meta charset="utf-8">' +
+    '<meta name="viewport" content="width=device-width, initial-scale=1.0">' +
     '<title>تعليمات السلامة</title>' +
-    '<style>body{font-family:Tahoma,sans-serif;padding:24px;max-width:700px;margin:0 auto}' +
-    'h1{font-size:18px;color:#173F7A;text-align:center}li{margin-bottom:10px;font-size:14px;font-weight:bold}</style>' +
-    '</head><body><h1>قواعد وتعليمات السلامة الهامة - ' + permitType + '</h1><ol>' + rows + '</ol></body></html>'
+    '<style>' +
+    ':root{--fs:16px}' +
+    '*{box-sizing:border-box}' +
+    'body{font-family:Tahoma,sans-serif;padding:20px 20px 90px;max-width:700px;margin:0 auto;font-size:var(--fs);line-height:1.65}' +
+    'h1{font-size:1.2em;color:#173F7A;text-align:center;margin:0 0 18px}' +
+    'ol{padding-inline-start:22px;margin:0}' +
+    'li{margin-bottom:14px;font-size:1em;line-height:1.65;font-weight:bold}' +
+    '.zoom-btn{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);background:#173F7A;color:#fff;' +
+    'border:none;border-radius:999px;padding:12px 22px;font-size:14px;font-weight:bold;box-shadow:0 2px 10px rgba(0,0,0,.25)}' +
+    '@media print{.zoom-btn{display:none}}' +
+    '</style>' +
+    '</head><body>' +
+    '<h1>قواعد وتعليمات السلامة الهامة - ' + permitType + '</h1>' +
+    '<ol>' + rows + '</ol>' +
+    '<button type="button" class="zoom-btn" onclick="' +
+      "var s=[16,20,24];window.__fsIdx=((window.__fsIdx||0)+1)%s.length;" +
+      "document.documentElement.style.setProperty('--fs', s[window.__fsIdx]+'px');" +
+    '">A+ تكبير النص</button>' +
+    '</body></html>'
   );
   win.document.close();
 }

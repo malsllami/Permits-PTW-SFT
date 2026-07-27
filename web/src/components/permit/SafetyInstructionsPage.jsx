@@ -27,7 +27,7 @@ export function SafetyInstructionsTable({ instructions, lang, onLangChange }) {
         <SectionLanguageToggle lang={lang} onChange={onLangChange} />
       </div>
       <div className="table-scroll-wrap">
-        <table className="app-table">
+        <table className="app-table app-table-list">
           <thead>
             <tr><th>{lang === 'ar' ? 'بند تعليمات السلامة' : 'Safety Instruction'}</th></tr>
           </thead>
@@ -52,19 +52,39 @@ export function SafetyInstructionsTable({ instructions, lang, onLangChange }) {
  * ثنائيي اللغة). تظهر بعد إغلاق/إلغاء التصريح. نسخة الطباعة/PDF منفصلة تمامًا (الصفحة 4
  * من PermitPrint) وتستخدم نفس SafetyInstructionsTable المشترك أدناه بلغة ثابتة مُختارة.
  */
+// دورة أحجام خط القراءة على الجوال - افتراضي مريح للقراءة السريعة، مع إمكانية تكبيره
+// لمن يحتاج خطًا أكبر، ثم يعود للحجم الافتراضي عند تجاوز آخر قيمة (وليس تكبيرًا بلا حدود).
+const READING_FONT_SIZES = [16, 20, 24];
+
 export default function SafetyInstructionsPage({ permitType, lang: controlledLang, onLangChange }) {
   const instructions = useSafetyInstructions(permitType);
   const [localLang, setLocalLang] = useState('ar');
   const lang = controlledLang || localLang;
   const setLang = onLangChange || setLocalLang;
+  const [fontSizeIdx, setFontSizeIdx] = useState(0);
 
   if (instructions.length === 0) return null;
 
+  const fontSize = READING_FONT_SIZES[fontSizeIdx];
+
   return (
-    <div className="app-card safety-instructions-page" style={{ marginTop: 16 }}>
-      <h3 style={{ fontSize: 15, color: 'var(--color-primary)', textAlign: 'center', margin: '0 0 10px' }}>
-        {lang === 'ar' ? 'قواعد وتعليمات السلامة الهامة' : 'Important Safety Instructions'}
-      </h3>
+    <div
+      className="app-card safety-instructions-page"
+      style={{ marginTop: 16, '--table-font-size': fontSize + 'px', '--table-line-height': 1.65 }}
+    >
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginBottom: 10 }}>
+        <h3 style={{ fontSize: 15, color: 'var(--color-primary)', margin: 0 }}>
+          {lang === 'ar' ? 'قواعد وتعليمات السلامة الهامة' : 'Important Safety Instructions'}
+        </h3>
+        <button
+          type="button"
+          className="no-print secondary"
+          onClick={() => setFontSizeIdx((i) => (i + 1) % READING_FONT_SIZES.length)}
+          style={{ fontSize: 12, padding: '6px 10px', minHeight: 0, whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: 4 }}
+        >
+          <strong>A+</strong> تكبير النص
+        </button>
+      </div>
       <SafetyInstructionsTable instructions={instructions} lang={lang} onLangChange={setLang} />
     </div>
   );

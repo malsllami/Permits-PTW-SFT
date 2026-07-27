@@ -5,6 +5,7 @@ import {
   initiateReceiverHandover, confirmReceiverHandover, getSecretCodeForSource
 } from '../../services/permitsService.js';
 import { getAllSettings, getPublicSettings } from '../../services/settingsService.js';
+import { useSession } from '../../hooks/useSession.js';
 import { requestMandatoryGps } from '../../hooks/useGeolocation.js';
 import { ACCESS_MODE, PERMIT_TYPE } from '../../config/constants.js';
 import { t } from '../../config/permitLabels.js';
@@ -33,6 +34,7 @@ import { SharePanel, SummaryTables } from './PermitSummary.jsx';
  */
 export default function PermitDocumentViewer({ creationId, accessMode, currentUser, onRefreshNeeded }) {
   const navigate = useNavigate();
+  const { employee } = useSession();
   const [permit, setPermit] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -220,6 +222,16 @@ export default function PermitDocumentViewer({ creationId, accessMode, currentUs
     return lines.join('\n');
   }
 
+  // بعد إغلاق/إلغاء التصريح (أو لزائر مسح رمز QR لتصريح مغلق) لا يوجد أي زر خروج واضح من
+  // شاشة العرض النهائية - موظف مسجَّل دخوله يعود لشاشته الرئيسية، أما زائر مجهول (بلا جلسة،
+  // فتح الرابط مباشرة من كاميرا الجوال) فلا "رئيسية" له، فتُغلَق التبويبة نفسها إن أمكن
+  // (تعمل غالبًا لتبويبة فتحها المسح مباشرة)، وإلا يُعاد لشاشة الدخول كحل بديل.
+  const handleCloseAndReturn = () => {
+    if (employee) { navigate('/source/home'); return; }
+    window.close();
+    navigate('/login');
+  };
+
   const handleShareWhatsApp = () => {
     window.open('https://wa.me/?text=' + encodeURIComponent(buildWhatsAppMessage()), '_blank');
   };
@@ -310,9 +322,11 @@ export default function PermitDocumentViewer({ creationId, accessMode, currentUs
     { key: STEP_SOURCE, label: 'المصدر', color: THEMES.red.border },
     { key: STEP_RECEIVER, label: 'المستلم', color: THEMES.yellow.border },
     { key: STEP_ISSUE, label: 'مراجعة', color: 'var(--color-secondary)' },
-    // خطوة الإغلاق تضم إغلاق المستلم (أصفر) ثم إغلاق المصدر (أحمر) معًا - لون محايد للهيدر
-    // نفسه بدل تفضيل أحدهما، بينما يبقى كل قسم فرعي بلون الطرف الفعلي الذي يتصرف.
-    { key: STEP_CLOSE, label: 'الإغلاق', color: THEMES.neutral.border }
+    // خطوة الإغلاق تضم إغلاق المستلم (أصفر) ثم إغلاق المصدر (أحمر) معًا - تُلوَّن بلون
+    // المصدر (أحمر) لا لون محايد/مستقل، لأن ثوابت الألوان في كل الموقع تبقى دائمًا: أحمر
+    // للمصدر وأصفر للمستلم فقط (بلا لون ثالث لأي مرحلة)، والمصدر هو من يملك سلطة الإغلاق
+    // النهائي فعليًا (آخر إجراء يحدد إغلاق التصريح رسميًا).
+    { key: STEP_CLOSE, label: 'الإغلاق', color: THEMES.red.border }
   ];
   // لون الهيدر العلوي الملوّن بالكامل - بلون خطوة الويزار الحالية أثناء دورة الحياة، أو
   // بلون الأزرق الأساسي بعد الإغلاق (شاشة العرض/الطباعة النهائية لا ترتبط بخطوة معيّنة).
@@ -336,7 +350,7 @@ export default function PermitDocumentViewer({ creationId, accessMode, currentUs
   const showView = (n) => !showCreationPendingCard && (wizardMode || viewPage === n);
   const VIEW_PAGE_DEFS = [
     { key: VIEW_PAGE_WORK, label: 'بيانات المهمة', color: 'var(--color-primary)' },
-    { key: VIEW_PAGE_CLOSE, label: 'الإغلاق', color: THEMES.closing.border },
+    { key: VIEW_PAGE_CLOSE, label: 'الإغلاق', color: THEMES.red.border },
     { key: VIEW_PAGE_JOURNEY, label: 'رحلة التصريح', color: 'var(--color-secondary)' },
     { key: VIEW_PAGE_SAFETY, label: 'تعليمات السلامة', color: THEMES.neutral.border }
   ];
@@ -410,7 +424,7 @@ export default function PermitDocumentViewer({ creationId, accessMode, currentUs
                       (ltr) بلا التفاف - يضمن ظهورها كاملة وبترتيبها الصحيح دائمًا. */}
                   <div style={{ background: 'var(--color-bg-permit-number)', color: 'var(--color-success)', border: '1.5px solid var(--color-success)', borderRadius: 8, padding: '4px 8px' }}>
                     <div style={{ fontWeight: 'bold', opacity: 0.85 }}>{t('permitNumber', 'ar')}</div>
-                    <strong style={{ display: 'block', direction: 'ltr', whiteSpace: 'nowrap', overflowX: 'auto' }}>{permit.permitNumber || '—'}</strong>
+                    <strong style={{ display: 'block', fontSize: 12, direction: 'ltr', whiteSpace: 'nowrap', overflowX: 'auto' }}>{permit.permitNumber || '—'}</strong>
                   </div>
                   <div style={{ borderTop: '1px solid var(--color-border)' }} />
                   <div style={{ display: 'flex', justifyContent: 'space-between', gap: 6 }}>
@@ -470,7 +484,7 @@ export default function PermitDocumentViewer({ creationId, accessMode, currentUs
                       (ltr) بلا التفاف - يضمن ظهورها كاملة وبترتيبها الصحيح دائمًا. */}
                   <div style={{ background: 'var(--color-bg-permit-number)', color: 'var(--color-success)', border: '1.5px solid var(--color-success)', borderRadius: 8, padding: '4px 8px' }}>
                     <div style={{ fontWeight: 'bold', opacity: 0.85 }}>{t('permitNumber', 'ar')}</div>
-                    <strong style={{ display: 'block', direction: 'ltr', whiteSpace: 'nowrap', overflowX: 'auto' }}>{permit.permitNumber || '—'}</strong>
+                    <strong style={{ display: 'block', fontSize: 12, direction: 'ltr', whiteSpace: 'nowrap', overflowX: 'auto' }}>{permit.permitNumber || '—'}</strong>
                   </div>
                   <div style={{ borderTop: '1px solid var(--color-border)' }} />
                   <div style={{ display: 'flex', justifyContent: 'space-between', gap: 6 }}>
@@ -757,6 +771,9 @@ export default function PermitDocumentViewer({ creationId, accessMode, currentUs
               )}
               employeeId={permit.receiver.employeeId}
               fullName={permit.receiver.fullName}
+              mobile={receiverCloseEditable ? (currentUser ? currentUser.mobile : '') : permit.receiver.mobile}
+              cardRemainingDays={receiverCloseEditable ? (currentUser ? currentUser.receiverCardRemainingDays : '') : permit.receiver.cardRemainingDays}
+              cardExpiry={receiverCloseEditable ? (currentUser ? currentUser.receiverCardExpiry : '') : permit.receiver.cardExpiry}
               dateTime={permit.receiver.closeDateTime}
               gps={permit.receiver.closeGps}
               savedSignature={permit.receiver.closeSignature}
@@ -902,7 +919,6 @@ export default function PermitDocumentViewer({ creationId, accessMode, currentUs
               signature={signature}
               onSignatureChange={setSignature}
               extraFields={[
-                { label: t('sourceLockNumber', 'ar'), value: permit.sourceLockNumber, onChange: () => {}, icon: <Icon name="lock" size={12} /> },
                 { label: t('authorityOfficialName', 'ar'), value: permit.authorityOfficialName, onChange: () => {}, icon: <Icon name="person" size={12} /> }
               ]}
             >
@@ -943,12 +959,15 @@ export default function PermitDocumentViewer({ creationId, accessMode, currentUs
         <div
           className="no-print"
           style={{
-            position: 'sticky', bottom: 0, display: 'flex', justifyContent: 'center', alignItems: 'center',
+            position: 'sticky', bottom: 0, display: 'flex', flexWrap: 'wrap', justifyContent: 'center', alignItems: 'center', gap: 8,
             padding: '10px 0', marginTop: 8, background: 'linear-gradient(to top, var(--color-background) 70%, transparent)'
           }}
         >
           <button disabled={pdfExporting} onClick={() => setShowPrintLangPrompt(true)} style={{ background: 'var(--color-secondary)', color: '#fff', boxShadow: '0 2px 10px rgba(0,0,0,0.15)' }}>
-            {pdfExporting ? 'جارٍ تجهيز الملف...' : 'تنزيل PDF'}
+            {pdfExporting ? 'جارٍ تجهيز الملف...' : '📄 تنزيل نسخة PDF الرسمية'}
+          </button>
+          <button onClick={handleCloseAndReturn} className="secondary" style={{ boxShadow: '0 2px 10px rgba(0,0,0,0.1)' }}>
+            {employee ? 'إغلاق والعودة للرئيسية' : 'إغلاق'}
           </button>
         </div>
       )}

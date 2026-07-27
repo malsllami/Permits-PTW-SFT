@@ -198,10 +198,21 @@ table.app-table thead th {
 
 table.app-table td {
   text-align: center;
-  font-size: 12px;
+  font-size: var(--table-font-size, 12px);
+  line-height: var(--table-line-height, normal);
   font-weight: bold;
   padding: 8px;
   border-bottom: 1px solid #eef0f3;
+}
+
+/* جدول أحادي العمود (قائمة بنود، وليس بيانات جدولية حقيقية بأعمدة متعددة) - بلا حد أدنى
+   لعرض العمود (640px)، فيستفيد من كامل عرض الشاشة على الجوال بدل فرض تمرير أفقي لا داعي
+   له لقائمة نصية بسيطة سطر واحد. */
+table.app-table.app-table-list {
+  min-width: 0;
+}
+table.app-table.app-table-list td {
+  text-align: right;
 }
 
 /* تلوين متناوب للصفوف (أبيض/رمادي فاتح جدًا) لتسهيل تتبّع كل صف بصريًا في الجداول الطويلة. */
@@ -230,6 +241,15 @@ table.app-table tbody tr:nth-child(even) {
   padding: 12mm;
   box-sizing: border-box;
   background: #fff;
+}
+/* كل صفحة عدا الأخيرة تُقفَل على ارتفاع A4 الحقيقي بالضبط (وليس أدنى ارتفاع فقط) مع قصّ أي
+   فائض (overflow:hidden) - وإلا فمحتوى صفحة أولى طويل يتجاوز 297مم يبقى ظاهرًا في نفس صندوق
+   DOM الخاص بها، فيلتقطه html2canvas ضمن لقطة تلك الصفحة، ويظهر بصريًا وكأن رأس الصفحة
+   التالية "نزف" لأسفل الصفحة الحالية. الصفحة الأخيرة وحدها تبقى بلا قصّ (min-height) لأن
+   تعليمات السلامة متغيّرة الطول وقد تتجاوز صفحة واحدة فعلًا. */
+.print-page:not(.print-page-last) {
+  height: 297mm;
+  overflow: hidden;
 }
 .print-page table.app-table { font-size: 10px; }
 .print-page table.app-table th, .print-page table.app-table td { padding: 4px; }

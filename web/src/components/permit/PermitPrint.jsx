@@ -139,7 +139,7 @@ export default function PermitPrint({ permit, companyName, printLang }) {
           </table>
         </section>
 
-        <section style={{ marginTop: 12 }}>
+        <section style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid #E2E5EA' }}>
           <div style={{ fontWeight: 'bold', fontSize: 13, color: 'var(--color-primary)' }}>ملخص التواقيع</div>
           <div style={{ fontSize: 10, opacity: 0.75, marginBottom: 6 }}>Signatures Summary</div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8 }}>
@@ -153,8 +153,10 @@ export default function PermitPrint({ permit, companyName, printLang }) {
           </div>
         </section>
 
-        <div style={{ fontWeight: 'bold', fontSize: 13, color: 'var(--color-primary)', textAlign: 'center', margin: '14px 0 4px' }}>
-          {printLang === 'ar' ? 'قواعد وتعليمات السلامة الهامة' : 'Important Safety Instructions'}
+        <div style={{ marginTop: 14, paddingTop: 12, borderTop: '1px solid #E2E5EA' }}>
+          <div style={{ fontWeight: 'bold', fontSize: 13, color: 'var(--color-primary)', textAlign: 'center', margin: '0 0 4px' }}>
+            {printLang === 'ar' ? 'قواعد وتعليمات السلامة الهامة' : 'Important Safety Instructions'}
+          </div>
         </div>
         <SafetyInstructionsTable instructions={instructions} lang={printLang} onLangChange={() => {}} />
       </PrintPage>
@@ -234,8 +236,12 @@ function WorkDataSection({ permit }) {
         </tbody>
       </table>
 
-      <BadgeField label={t('isolationPoints', 'ar')} items={isolationBadges} />
-      <BadgeField label="مفاتيح المصدر" items={sourceSwitchBadges} />
+      {(isolationBadges.length > 0 || sourceSwitchBadges.length > 0) && (
+        <div style={{ marginTop: 8, paddingTop: 8, borderTop: '1px solid #E2E5EA' }}>
+          <BadgeField label={t('isolationPoints', 'ar')} items={isolationBadges} />
+          <BadgeField label="مفاتيح المصدر" items={sourceSwitchBadges} />
+        </div>
+      )}
     </section>
   );
 }
@@ -291,8 +297,9 @@ function PersonSection({ bg, title, employeeId, fullName, mobile, extraRows, dat
       </div>
 
       {/* بيانات الاعتماد - جدول واحد مضغوط: صفوف الحقول الإضافية مزدوجة، ثم صف التاريخ/الوقت
-          (ميلادي وهجري معًا)، ثم صف التوقيع بعرض كامل - بدل خمس بطاقات صغيرة متفرقة. */}
-      <div style={{ fontSize: 10, fontWeight: 'bold', opacity: 0.7, marginTop: 8 }}>بيانات الاعتماد</div>
+          (ميلادي وهجري معًا)، ثم صف التوقيع بعرض كامل - بدل خمس بطاقات صغيرة متفرقة. خط فاصل
+          رفيع أعلاها يفصلها بصريًا عن بيانات الموظف أعلاه ضمن نفس بطاقة الطرف. */}
+      <div style={{ fontSize: 10, fontWeight: 'bold', opacity: 0.7, marginTop: 8, paddingTop: 8, borderTop: '1px solid #E2E5EA' }}>بيانات الاعتماد</div>
       <table className="app-table" style={{ marginTop: 2, fontSize: 11 }}>
         <tbody>
           {pairedRows.map(([first, second], idx) => (

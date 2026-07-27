@@ -35,13 +35,20 @@ export function SharePanel({ permitLink, secretCode, secretNote, onCopy, copied 
   );
 }
 
-/** بطاقة حدث واحد ضمن خط زمني رأسي (للشاشة فقط) - نقطة ملوّنة + اسم الحدث + الشخص
-    المسؤول + التاريخ/الوقت + التوقيع (إن وُجد) - بدل صف جدول ضيّق يُقصّ على الجوال. */
-function TimelineEventCard({ color, label, name, dateTime, signature }) {
+/** بطاقة حدث واحد ضمن خط زمني رأسي (للشاشة فقط) - رقم تسلسلي دائري + نقطة ملوّنة + اسم
+    الحدث + الشخص المسؤول + التاريخ/الوقت + التوقيع (إن وُجد) - بدل صف جدول ضيّق يُقصّ على
+    الجوال. الرقم التسلسلي يوضّح ترتيب الرحلة فورًا (①-⑥) بدل الاعتماد على الألوان فقط. */
+function TimelineEventCard({ number, color, label, name, dateTime, signature }) {
   if (!dateTime && !name && !signature) return null;
   return (
     <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start', background: '#fff', borderRadius: 'var(--radius-md)', boxShadow: '0 1px 3px rgba(0,0,0,0.06)', padding: 14, marginBottom: 10 }}>
-      <span style={{ width: 10, height: 10, borderRadius: '50%', background: color, marginTop: 5, flexShrink: 0 }} />
+      <span style={{
+        width: 22, height: 22, borderRadius: '50%', background: color, color: '#fff',
+        display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 'bold',
+        flexShrink: 0
+      }}>
+        {number}
+      </span>
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ fontWeight: 'bold', fontSize: 13 }}>{label}</div>
         {name && <div style={{ fontSize: 13, fontWeight: 600, marginTop: 4 }}>{name}</div>}
@@ -76,36 +83,38 @@ export function SummaryTables({ permit }) {
       </div>
       <div style={{ marginTop: 10 }}>
         <TimelineEventCard
-          color="var(--color-primary)" label="إنشاء التصريح"
+          number="①" color="var(--color-primary)" label="إنشاء التصريح"
           name={permit.source.fullName + ' (' + permit.source.employeeId + ')'}
           dateTime={formatDateTimeShort(combineDateAndTime(permit.createdDate, permit.createdTime))}
         />
         <TimelineEventCard
-          color={THEMES.red.border} label="اعتماد المصدر (تحويل للمستلم)"
+          number="②" color={THEMES.red.border} label="اعتماد المصدر (تحويل للمستلم)"
           name={permit.source.fullName + ' (' + permit.source.employeeId + ')'}
           dateTime={formatDateTimeShort(permit.source.transferDateTime)}
           signature={permit.source.transferSignature}
         />
         <TimelineEventCard
-          color={THEMES.yellow.border} label="اعتماد المستلم (الاستلام)"
+          number="③" color={THEMES.yellow.border} label="اعتماد المستلم (الاستلام)"
           name={originalReceiverName}
           dateTime={formatDateTimeShort(permit.receiver.receiveDateTime)}
           signature={permit.receiver.receiveSignature}
         />
+        {/* إصدار رقم التصريح إجراء يقوم به المصدر (نفس من اعتمد التحويل) - يبقى بلون
+            المصدر (أحمر) لا الأخضر، حتى لا يتعارض مع ثابت "أخضر = مكتمل" العام. */}
         <TimelineEventCard
-          color="var(--color-success)" label="إصدار رقم التصريح"
+          number="④" color={THEMES.red.border} label="إصدار رقم التصريح"
           name={permit.source.fullName + ' (' + permit.source.employeeId + ')'}
           dateTime={formatDateTimeShort(permit.source.approvalDateTime)}
           signature={permit.source.approvalSignature}
         />
         <TimelineEventCard
-          color={THEMES.yellow.border} label={hadHandover ? 'إغلاق المستلم (المستلم المغلق)' : 'إغلاق المستلم'}
+          number="⑤" color={THEMES.yellow.border} label={hadHandover ? 'إغلاق المستلم (المستلم المغلق)' : 'إغلاق المستلم'}
           name={closingReceiverName}
           dateTime={formatDateTimeShort(permit.receiver.closeDateTime)}
           signature={permit.receiver.closeSignature}
         />
         <TimelineEventCard
-          color={THEMES.red.border} label="الإغلاق النهائي (المصدر)"
+          number="⑥" color={THEMES.red.border} label="الإغلاق النهائي (المصدر)"
           name={permit.closingSource.fullName + ' (' + permit.closingSource.employeeId + ')'}
           dateTime={formatDateTimeShort(permit.closingSource.closeDateTime)}
           signature={permit.closingSource.closeSignature}
