@@ -167,12 +167,14 @@ export default function PartySection({ title, theme, checklist, employeeId, full
             )}
 
             {/* زر واحد نظيف بدل عرض الإحداثيات الخام بارزة - 95٪ من المستخدمين لن يقرؤوا
-                رقمَي خط الطول/العرض، والزر نفسه يفتح Google Maps مباشرة بنفس الإحداثيات. */}
+                رقمَي خط الطول/العرض، والزر نفسه يفتح Google Maps مباشرة بنفس الإحداثيات.
+                خلفية زرقاء فاتحة (نفس نمط أزرار النظام الثانوية) بدل الأبيض المسطّح، حتى
+                يشعر المستخدم فعليًا أنه زر قابل للضغط وليس مجرد تسمية نصية. */}
             {gps && (
               <a
                 href={'https://www.google.com/maps?q=' + gps}
                 target="_blank" rel="noreferrer"
-                style={{ marginTop: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, background: '#fff', boxShadow: '0 1px 3px rgba(0,0,0,0.06)', borderRadius: 'var(--radius-md)', padding: '10px 12px', fontSize: 13, fontWeight: 'bold', color: 'var(--color-primary)', textDecoration: 'none' }}
+                style={{ marginTop: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, background: 'var(--color-primary-light)', borderRadius: 'var(--radius-md)', padding: '10px 12px', fontSize: 13, fontWeight: 'bold', color: 'var(--color-primary)', textDecoration: 'none' }}
               >
                 {t('openInMaps', lang)}
               </a>

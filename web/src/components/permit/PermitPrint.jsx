@@ -50,16 +50,24 @@ export default function PermitPrint({ permit, companyName, printLang }) {
         <WorkDataSection permit={permit} />
 
         {/* رقم التصريح + QR مباشرة أسفل بيانات المهمة - أهم معلومة في المستند تظهر أولًا،
-            قبل بيانات الأشخاص، بدل انتظارها في نهاية الصفحة بعد كل البطاقات. */}
-        <section style={{ marginTop: 8, display: 'flex', alignItems: 'center', gap: 14, border: '1px solid #E2E5EA', borderRadius: 'var(--radius-lg)', padding: 10, boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
+            قبل بيانات الأشخاص. بطاقة رسمية هادئة عمدًا: حدود شعرية فقط (بلا ظل يقلّل من
+            الطابع الرسمي عند الطباعة)، أخضر داكن احترافي، وخط فاصل أسفل الرقم بعرض الرقم
+            نفسه فقط (وليس عرض البطاقة) لتثبيته بصريًا بلمسة رسمية. */}
+        <section style={{ marginTop: 8, display: 'flex', alignItems: 'center', gap: 16, border: '0.4px solid #D9DEE6', borderRadius: 'var(--radius-lg)', padding: 12, background: '#fff' }}>
           <QRCodeView link={permit.permitLink} size={64} />
           <div style={{ fontSize: 11, flex: 1, minWidth: 0 }}>
             {/* رقم التصريح بسطره الخاص بعرض كامل (اتجاه ثابت LTR بلا التفاف) - لا يُوضَع
                 بجانب مدة العمل في نفس الصف كما كان، لأن خلط أرقام/فواصل إنجليزية مع محتوى
                 عربي بمساحة ضيقة قد يجعل الأجزاء تُعاد ترتيبها بصريًا (Bidi) بشكل مربك. */}
-            <div style={{ opacity: 0.7 }}>{t('permitNumber', 'ar')}</div>
-            <div style={{ fontWeight: 'bold', fontSize: 13, color: 'var(--color-success)', direction: 'ltr', textAlign: 'right', whiteSpace: 'nowrap' }}>{permit.permitNumber || '—'}</div>
-            <div style={{ opacity: 0.7, marginTop: 6 }}>{t('workDuration', 'ar')}</div>
+            <div style={{ opacity: 0.65, fontSize: 10 }}>{t('permitNumber', 'ar')}</div>
+            <div style={{
+              display: 'inline-block', fontWeight: 700, fontSize: 15, color: '#146C2E',
+              direction: 'ltr', textAlign: 'right', whiteSpace: 'nowrap',
+              borderBottom: '0.6px solid #146C2E', paddingBottom: 3, marginTop: 2
+            }}>
+              {permit.permitNumber || '—'}
+            </div>
+            <div style={{ opacity: 0.65, fontSize: 10, marginTop: 8 }}>{t('workDuration', 'ar')}</div>
             <div style={{ fontWeight: 'bold' }}>{workDuration || '—'}</div>
           </div>
         </section>
@@ -70,6 +78,7 @@ export default function PermitPrint({ permit, companyName, printLang }) {
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginTop: 8 }}>
           <PersonSection
             bg="var(--color-bg-source)"
+            stripColor="var(--color-role-source-border)" stripLabel="① إنشاء التصريح"
             title="بيانات المصدر / Issuer Data"
             employeeId={permit.source.employeeId}
             fullName={permit.source.fullName}
@@ -84,6 +93,7 @@ export default function PermitPrint({ permit, companyName, printLang }) {
           />
           <PersonSection
             bg="var(--color-bg-receiver)"
+            stripColor="var(--color-role-receiver-border)" stripLabel="② استلام التصريح"
             title="بيانات المستلم / Receiver Data"
             employeeId={permit.receiver.employeeId}
             fullName={permit.receiver.fullName}
@@ -102,6 +112,7 @@ export default function PermitPrint({ permit, companyName, printLang }) {
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginTop: 8 }}>
           <PersonSection
             bg="var(--color-bg-receiver)"
+            stripColor="var(--color-role-receiver-border)" stripLabel="③ إغلاق المستلم"
             title="إغلاق/إلغاء التصريح بواسطة المستلم / Closing or Cancelling by Receiver"
             employeeId={permit.receiver.employeeId}
             fullName={hadHandover ? undefined : closingReceiverName}
@@ -116,6 +127,7 @@ export default function PermitPrint({ permit, companyName, printLang }) {
           />
           <PersonSection
             bg="var(--color-bg-source)"
+            stripColor="var(--color-role-source-border)" stripLabel="④ إغلاق المصدر"
             title="إغلاق المصدر النهائي / Final Issuer Close-out"
             employeeId={permit.closingSource.employeeId}
             fullName={permit.closingSource.fullName}
@@ -291,7 +303,7 @@ function BadgeField({ label, items }) {
  * مضغوط (حقول إضافية مزدوجة + صف تاريخ/وقت + صف توقيع) بدل خمس بطاقات صغيرة منفصلة -
  * يقلّص ارتفاع كل بطاقة طرف بمقدار كبير حسب المواصفة المعتمدة.
  */
-function PersonSection({ bg, title, employeeId, fullName, mobile, extraRows, dateTime, signature }) {
+function PersonSection({ bg, title, stripColor, stripLabel, employeeId, fullName, mobile, extraRows, dateTime, signature }) {
   // العربي عنوان رئيسي والإنجليزي أسفله بخط أصغر - أقرب للنماذج الصناعية الاحترافية.
   const [titleAr, titleEn] = String(title).split(' / ');
   const rows = extraRows || [];
@@ -302,7 +314,16 @@ function PersonSection({ bg, title, employeeId, fullName, mobile, extraRows, dat
   const dateLines = formatBilingualDateLines(dateTime);
 
   return (
-    <section style={{ minWidth: 0, background: bg, border: '1px solid #E2E5EA', boxShadow: '0 1px 3px rgba(0,0,0,0.05)', borderRadius: 'var(--radius-lg)', padding: 10 }}>
+    <section style={{ minWidth: 0, background: bg, border: '1px solid #E2E5EA', boxShadow: '0 1px 3px rgba(0,0,0,0.05)', borderRadius: 'var(--radius-lg)', overflow: 'hidden' }}>
+      {/* شريط علوي رفيع ملوّن بلون الطرف الفعلي (أحمر=مصدر دائمًا/أصفر=مستلم دائمًا) مع
+          تسمية التسلسل - يوضّح ترتيب مراحل الاعتماد حتى لمن يطبع الورقة لأول مرة، بدل
+          الاعتماد فقط على عنوان البطاقة نفسه. */}
+      {stripColor && (
+        <div style={{ background: stripColor, color: '#fff', fontSize: 9, fontWeight: 'bold', padding: '3px 10px' }}>
+          {stripLabel}
+        </div>
+      )}
+      <div style={{ padding: 10 }}>
       <div style={{ fontWeight: 'bold', fontSize: 13, color: 'var(--color-primary)' }}>{titleAr}</div>
       {titleEn && <div style={{ fontSize: 10, opacity: 0.75, marginBottom: 6 }}>{titleEn}</div>}
       {/* الاسم بسطره الخاص بعرض كامل (أكثر الحقول عُرضة للطول)، ثم الرقم الوظيفي والجوال
@@ -349,6 +370,7 @@ function PersonSection({ bg, title, employeeId, fullName, mobile, extraRows, dat
           </tr>
         </tbody>
       </table>
+      </div>
     </section>
   );
 }

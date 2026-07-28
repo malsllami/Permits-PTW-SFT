@@ -42,6 +42,9 @@ export default function SafetyChecklistSection({ permitType, stage, checkedMap, 
 
   if (items.length === 0) return null;
 
+  const checkedCount = items.filter((item) => checkedMap[item.row]).length;
+  const allMandatoryComplete = items.every((item) => !item.required || checkedMap[item.row]);
+
   return (
     <div className="safety-checklist" style={{ border: '1px solid #e3e6eb', borderRadius: 'var(--radius-md)', padding: 10, marginTop: 10 }}>
       <div
@@ -50,14 +53,18 @@ export default function SafetyChecklistSection({ permitType, stage, checkedMap, 
       >
         {/* أيقونة واحدة فقط (السهم) بدل درع+سهم متضادين في الجهة - السهم وحده يكفي للدلالة
             على قابلية الطي/الفتح، ويبقى بجانب النص مباشرة في نفس الجهة دائمًا. مطويّة
-            دائمًا افتراضيًا (تعبئة أو قراءة) لتقليل طول الصفحة - نص فرعي "مراجعة الإجراءات"
-            يوضّح أنها قابلة للفتح عند الحاجة. */}
+            دائمًا افتراضيًا (تعبئة أو قراءة) لتقليل طول الصفحة - ملخص سريع (عدد المكتمل +
+            علامة صح عند اكتمال كل الإلزامي) يوضّح الحالة دون الحاجة لفتح القائمة للتأكد. */}
         <strong style={{ fontSize: 13, display: 'flex', flexDirection: 'column', gap: 2 }}>
           <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
             {!forceOpen && <Icon name={open ? 'expand_less' : 'chevron_left'} size={16} />}
             {t('safetyItems', lang)} ({items.length})
           </span>
-          {!open && <span style={{ fontSize: 11, fontWeight: 500, opacity: 0.65 }}>{t('reviewActions', lang)}</span>}
+          {!open && (
+            <span style={{ fontSize: 11, fontWeight: 500, opacity: 0.65 }}>
+              {checkedCount} / {items.length} {t('actionsCompletedOf', lang)}{allMandatoryComplete ? ' ✓' : ''}
+            </span>
+          )}
         </strong>
         {open && <SectionLanguageToggle lang={lang} onChange={onLangChange} />}
       </div>

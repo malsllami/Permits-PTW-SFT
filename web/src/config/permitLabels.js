@@ -23,8 +23,9 @@ export const PERMIT_LABELS = {
   gps: { ar: 'الموقع الجغرافي', en: 'GPS' },
   // اسم رسمي بدل "بنود السلامة/Checklist" - هذه إقرار من الموظف بتنفيذ الإجراءات فعليًا،
   // وليست تعليمات سلامة للقراءة فقط (تلك منفصلة تمامًا - SafetyInstructionsPage).
-  safetyItems: { ar: 'تأكيد الإجراءات', en: 'Action Confirmation' },
+  safetyItems: { ar: 'تأكيد الإجراءات المنفذة', en: 'Executed Action Confirmation' },
   reviewActions: { ar: 'مراجعة الإجراءات', en: 'Review Actions' },
+  actionsCompletedOf: { ar: 'مكتملة', en: 'completed' },
   permitNumber: { ar: 'رقم التصريح', en: 'Permit No.' },
   status: { ar: 'الحالة', en: 'Status' },
   workDuration: { ar: 'مدة تنفيذ العمل', en: 'Duration of Work' },
