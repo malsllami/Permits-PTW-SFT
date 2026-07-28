@@ -71,7 +71,7 @@ export function LifecycleTimeline({ permit }) {
     { icon: 'timer', label: 'مدة العمل', text: workDuration, full: true }
   ];
   return (
-    <div className="no-print" style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr)', gap: 8, marginTop: 12, marginBottom: 14, fontSize: 11 }}>
+    <div className="no-print" style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr)', gap: 8, marginTop: 8, marginBottom: 8, fontSize: 11 }}>
       {stages.map((s) => {
         // تاريخ ووقت كسطرين ثابتين (بدل نص طويل واحد قد يلتفّ عشوائيًا داخل صندوق ضيّق).
         const dt = s.dateValue ? formatDateTimeTwoLines(s.dateValue) : null;

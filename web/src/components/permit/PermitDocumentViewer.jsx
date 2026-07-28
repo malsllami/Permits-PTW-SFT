@@ -74,10 +74,10 @@ export default function PermitDocumentViewer({ creationId, accessMode, currentUs
   // "POST ACTION REDIRECT SECONDS" بالإعدادات) لحين وصول القيمة الفعلية من الخادم؛ 0 يعطّلها.
   const [redirectSeconds, setRedirectSeconds] = useState(4);
   const [shareSecretLoading, setShareSecretLoading] = useState(false);
-  // لغة صفحة تعليمات السلامة النهائية عند الطباعة/PDF - المستند المطبوع ثابت (لا زر تبديل
-  // حي بعد الطباعة)، لذا تُختار اللغة صراحة عبر بوابة اختيار قبل تشغيل الطباعة فعليًا.
+  // لغة صفحة تعليمات السلامة النهائية - تُضبط فقط عبر زر التبديل في SafetyInstructionsPage
+  // نفسها أثناء العرض الفعلي (لا بوابة اختيار منفصلة عند التصدير) - ملف PDF يُصدَّر مباشرة
+  // بأي لغة كانت مضبوطة حينها.
   const [printLang, setPrintLang] = useState('ar');
-  const [showPrintLangPrompt, setShowPrintLangPrompt] = useState(false);
   const [pdfExporting, setPdfExporting] = useState(false);
   // شاشة الإدخال التفاعلية تُقسَّم إلى خطوات (Wizard): بيانات العمل → المصدر → المستلم →
   // مراجعة وإصدار → الإغلاق - كل خطوة تظهر بمفردها بدل استمرار طويل متمرر. تُستخدم فقط
@@ -278,13 +278,11 @@ export default function PermitDocumentViewer({ creationId, accessMode, currentUs
   const handleInitiateHandover = () => withGpsAction((gps) => initiateReceiverHandover(creationId, handoverNewReceiverId, handoverSignature, gps));
   const handleConfirmHandover = () => withGpsAction((gps) => confirmReceiverHandover(permit.pendingHandover.transferId, handoverSignature, gps));
 
-  // صفحة تعليمات السلامة ثابتة اللغة عند التصدير (لا زر تبديل بعد التنزيل) - يُطلب من
-  // المستخدم اختيار اللغة صراحة أولًا، ثم يُصدَّر الملف مباشرة كـPDF (تنزيل فعلي، بدون
-  // المرور بنافذة طباعة المتصفح إطلاقًا). مهلة قصيرة قبل الالتقاط تضمن اكتمال إعادة رسم
-  // PermitPrint باللغة الجديدة أولًا (setPrintLang غير متزامن).
-  const confirmPrintLang = async (lang) => {
-    setPrintLang(lang);
-    setShowPrintLangPrompt(false);
+  // تنزيل PDF مباشر بلا أي بوابة اختيار لغة عند التصدير - العرض هو نفسه دائمًا (لا تغيير
+  // بصري حقيقي عند تبديل اللغة سوى نص تعليمات السلامة النهائية)، وتغيير اللغة يبقى متاحًا
+  // فقط أثناء سير مراحل التصريح نفسه (زر تبديل مستقل لكل قسم - انظر SafetyChecklistSection/
+  // SafetyInstructionsPage)، فيُصدَّر الملف مباشرة بأي لغة كانت مضبوطة حينها (printLang).
+  const handleDownloadPdf = async () => {
     setPdfExporting(true);
     setError('');
     try {
@@ -340,16 +338,18 @@ export default function PermitDocumentViewer({ creationId, accessMode, currentUs
   const wizardMode = isInteractiveRole && !showFinalInstructions;
   const STEP_WORK = 0, STEP_SOURCE = 1, STEP_RECEIVER = 2, STEP_ISSUE = 3, STEP_CLOSE = 4;
   const showStep = (n) => !wizardMode || currentStep === n;
+  // مسؤولية التصريح تنتقل فعليًا من المصدر للمستلم بمجرد توليد رقم التصريح (خطوة المراجعة
+  // تصبح أصفر بدل أحمر)، وتبقى أصفر طوال خطوة الإغلاق أيضًا لأن المستلم هو أول من يُغلق/
+  // يُلغي قسمه - تتحول أحمر فقط في اللحظة التي يصل فيها الدور فعليًا للمصدر لإتمام
+  // الإغلاق النهائي (بانتظار إغلاق المصدر/تأكيد الإلغاء، أو بعد الإغلاق الكامل).
+  const closeStepIsSourceTurn = permit.status === 'بانتظار إغلاق المصدر' || permit.status === 'بانتظار تأكيد الإلغاء من المصدر' ||
+    permit.status === 'مغلق' || permit.status === 'ملغي';
   const STEP_DEFS = [
     { key: STEP_WORK, label: t('workData', 'ar'), color: 'var(--color-primary)' },
     { key: STEP_SOURCE, label: 'المصدر', color: THEMES.red.border },
     { key: STEP_RECEIVER, label: 'المستلم', color: THEMES.yellow.border },
-    { key: STEP_ISSUE, label: 'مراجعة', color: 'var(--color-secondary)' },
-    // خطوة الإغلاق تضم إغلاق المستلم (أصفر) ثم إغلاق المصدر (أحمر) معًا - تُلوَّن بلون
-    // المصدر (أحمر) لا لون محايد/مستقل، لأن ثوابت الألوان في كل الموقع تبقى دائمًا: أحمر
-    // للمصدر وأصفر للمستلم فقط (بلا لون ثالث لأي مرحلة)، والمصدر هو من يملك سلطة الإغلاق
-    // النهائي فعليًا (آخر إجراء يحدد إغلاق التصريح رسميًا).
-    { key: STEP_CLOSE, label: 'الإغلاق', color: THEMES.red.border }
+    { key: STEP_ISSUE, label: 'مراجعة', color: permit.permitNumber ? THEMES.yellow.border : THEMES.red.border },
+    { key: STEP_CLOSE, label: 'الإغلاق', color: closeStepIsSourceTurn ? THEMES.red.border : THEMES.yellow.border }
   ];
   // لون الهيدر العلوي الملوّن بالكامل - بلون خطوة الويزار الحالية أثناء دورة الحياة، أو
   // بلون الأزرق الأساسي بعد الإغلاق (شاشة العرض/الطباعة النهائية لا ترتبط بخطوة معيّنة).
@@ -515,7 +515,7 @@ export default function PermitDocumentViewer({ creationId, accessMode, currentUs
 
           {/* 1) بيانات العمل - تظهر في خطوتها أثناء الويزار، وكتذكير عند خطوة المراجعة، أو في
               "صفحة 1" من شاشة العرض النهائية بعد الإغلاق. */}
-          <section style={{ marginTop: 14, background: 'var(--color-bg-work)', border: 'var(--border-width) solid #A9C8F2', borderRadius: 'var(--radius-lg)', padding: 20, display: (wizardMode ? (showStep(STEP_WORK) || showStep(STEP_ISSUE)) : showView(VIEW_PAGE_WORK)) ? undefined : 'none' }}>
+          <section style={{ marginTop: 8, background: 'var(--color-bg-work)', border: 'var(--border-width) solid #A9C8F2', borderRadius: 'var(--radius-lg)', padding: 20, display: (wizardMode ? (showStep(STEP_WORK) || showStep(STEP_ISSUE)) : showView(VIEW_PAGE_WORK)) ? undefined : 'none' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <strong style={{ fontSize: 13, display: 'flex', alignItems: 'center', gap: 6 }}><Icon name="assignment" size={16} /> {t('workData', 'ar')}</strong>
             </div>
@@ -985,7 +985,7 @@ export default function PermitDocumentViewer({ creationId, accessMode, currentUs
             padding: '10px 0', marginTop: 8, background: 'linear-gradient(to top, var(--color-background) 70%, transparent)'
           }}
         >
-          <button disabled={pdfExporting} onClick={() => setShowPrintLangPrompt(true)} style={{ background: 'var(--color-secondary)', color: '#fff', boxShadow: '0 2px 10px rgba(0,0,0,0.15)' }}>
+          <button disabled={pdfExporting} onClick={handleDownloadPdf} style={{ background: 'var(--color-secondary)', color: '#fff', boxShadow: '0 2px 10px rgba(0,0,0,0.15)' }}>
             {pdfExporting ? 'جارٍ تجهيز الملف...' : '📄 تنزيل نسخة PDF الرسمية'}
           </button>
           <button onClick={handleCloseAndReturn} className="secondary" style={{ boxShadow: '0 2px 10px rgba(0,0,0,0.1)' }}>
@@ -1004,20 +1004,6 @@ export default function PermitDocumentViewer({ creationId, accessMode, currentUs
             <WizardNav onBack={() => setViewPage(VIEW_PAGE_JOURNEY)} />
           </div>
         </>
-      )}
-
-      {showPrintLangPrompt && (
-        <div className="no-print" style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: 16 }}>
-          <div className="app-card" style={{ maxWidth: 340, width: '100%', textAlign: 'center' }}>
-            <h3 style={{ fontSize: 14, margin: '0 0 4px' }}>اختر لغة تعليمات السلامة في ملف PDF</h3>
-            <div style={{ fontSize: 11, color: '#888', marginBottom: 10 }}>Choose the safety instructions language for the PDF file</div>
-            <div style={{ display: 'flex', gap: 10, justifyContent: 'center' }}>
-              <button className="primary" onClick={() => confirmPrintLang('ar')}>تنزيل بالعربية</button>
-              <button className="secondary" onClick={() => confirmPrintLang('en')}>Download in English</button>
-            </div>
-            <button onClick={() => setShowPrintLangPrompt(false)} style={{ marginTop: 10, background: '#eee', color: '#333' }}>إلغاء</button>
-          </div>
-        </div>
       )}
     </div>
 

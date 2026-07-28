@@ -115,7 +115,7 @@ export default function PartySection({ title, theme, checklist, employeeId, full
     // بطاقة بلونين: هيدر مصمت بلون الدور (Issuer/Receiver/Closing) بارتفاع ثابت، وجسم
     // بخلفية فاتحة جدًا من نفس اللون (theme.bg) - وليس أبيض بالكامل ولا لونًا صلبًا بالكامل،
     // حسب مواصفة التصميم المعتمدة (Header/Background/Border/Radius/Shadow لكل بطاقة طرف).
-    <section className="party-section" style={{ marginTop: 12, background: theme.bg, border: '2px solid ' + theme.border, borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-card)', overflow: 'hidden' }}>
+    <section className="party-section" style={{ marginTop: 8, background: theme.bg, border: '2px solid ' + theme.border, borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-card)', overflow: 'hidden' }}>
       <div className="party-section-title" style={{
         background: theme.border, color: theme.badgeText, minHeight: 'var(--size-card-header-height)',
         padding: '0 20px', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: 10, boxSizing: 'border-box'

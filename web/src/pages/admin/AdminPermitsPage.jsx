@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { searchPermits, reopenPermit, cancelPermitByAdmin } from '../../services/permitsService.js';
 import StickyHeaderTable from '../../components/common/StickyHeaderTable.jsx';
 import QRCodeView from '../../components/common/QRCodeView.jsx';
-import { formatDateTimeShort } from '../../hooks/useHijriGregorianDate.js';
+import { formatDateTimeShort, combineDateAndTime } from '../../hooks/useHijriGregorianDate.js';
 
 export default function AdminPermitsPage() {
   const [permits, setPermits] = useState([]);
@@ -37,7 +37,7 @@ export default function AdminPermitsPage() {
             <td>{p['نوع التصريح']}</td>
             <td>{p['حالة التصريح']}</td>
             <td>{p['الرقم الوظيفي لمنشئ التصريح']}</td>
-            <td>{formatDateTimeShort(p['تاريخ الانشاء'])}</td>
+            <td>{formatDateTimeShort(combineDateAndTime(p['تاريخ الانشاء'], p['وقت الانشاء']))}</td>
             <td style={{ display: 'flex', gap: 4, justifyContent: 'center', flexWrap: 'wrap' }}>
               <button onClick={() => navigate('/permit?id=' + p['معرف انشاء التصريح'])} style={{ fontSize: 11 }}>فتح</button>
               <button onClick={() => setShareLink(p['رابط التصريح'])} style={{ fontSize: 11, background: 'var(--color-primary)', color: '#fff' }}>مشاركة</button>

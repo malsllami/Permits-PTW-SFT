@@ -8,7 +8,7 @@ import StatCard from '../../components/common/StatCard.jsx';
 import CreatePermitCard from '../../components/source/CreatePermitCard.jsx';
 import { useSession } from '../../hooks/useSession.js';
 import { hasRole } from '../../utils/roles.js';
-import { formatDateTimeShort } from '../../hooks/useHijriGregorianDate.js';
+import { formatDateTimeShort, combineDateAndTime } from '../../hooks/useHijriGregorianDate.js';
 
 /**
  * الشاشة الرئيسية - موحّدة لكل الأدوار (قسم 3/15 بدليل التصميم): بطاقة بيانات الموظف، ثم
@@ -98,7 +98,7 @@ export default function SourceHomePage() {
         {recentPermits.map((p) => (
           <div key={p['معرف انشاء التصريح']} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0', borderBottom: '1px solid #eef0f3', fontSize: 12 }}>
             <span style={{ fontWeight: 'bold' }}>{p['نوع التصريح']} - {p['حالة التصريح']}</span>
-            <span>{formatDateTimeShort(p['تاريخ الانشاء'])}</span>
+            <span>{formatDateTimeShort(combineDateAndTime(p['تاريخ الانشاء'], p['وقت الانشاء']))}</span>
             <button onClick={() => navigate('/permit?id=' + p['معرف انشاء التصريح'])} style={{ background: 'var(--color-primary)', color: '#fff', fontSize: 11 }}>فتح</button>
           </div>
         ))}

@@ -41,62 +41,70 @@ export default function PermitPrint({ permit, companyName, printLang }) {
     <div className="permit-print-root">
       <PrintPage pageNumber={1} totalPages={2} permit={permit} companyName={companyName} permitTitle={permitTitle}>
         <WorkDataSection permit={permit} />
-        <PersonSection
-          bg="var(--color-bg-source)"
-          title="بيانات المصدر / Issuer Data"
-          employeeId={permit.source.employeeId}
-          fullName={permit.source.fullName}
-          mobile={permit.source.mobile}
-          extraRows={[
-            ['رقم قفل السلامة', permit.sourceLockNumber],
-            ['اسم مسؤول الجهة المعنية', permit.authorityOfficialName],
-            ['نوع الجهة المعنية', permit.authorityType]
-          ]}
-          dateTime={permit.source.transferDateTime}
-          signature={permit.source.transferSignature}
-        />
-        <PersonSection
-          bg="var(--color-bg-receiver)"
-          title="بيانات المستلم / Receiver Data"
-          employeeId={permit.receiver.employeeId}
-          fullName={permit.receiver.fullName}
-          mobile={permit.receiver.mobile}
-          extraRows={[
-            ['رقم قفل السلامة', permit.receiverLockNumber],
-            ['نوع الجهة المستلمة', permit.receiverEntityType]
-          ]}
-          dateTime={permit.receiver.receiveDateTime}
-          signature={permit.receiver.receiveSignature}
-        />
-        <PersonSection
-          bg="var(--color-bg-receiver)"
-          title="إغلاق/إلغاء التصريح بواسطة المستلم / Closing or Cancelling by Receiver"
-          employeeId={permit.receiver.employeeId}
-          fullName={hadHandover ? undefined : closingReceiverName}
-          extraRows={[
-            ['الحالة', permit.status],
-            permit.status === 'ملغي' ? ['سبب الإلغاء', permit.cancellationReason] : null,
-            hadHandover ? ['المستلم', originalReceiverName] : null,
-            hadHandover ? ['المستلم المغلق', closingReceiverName] : null
-          ].filter(Boolean)}
-          dateTime={permit.receiver.closeDateTime}
-          signature={permit.receiver.closeSignature}
-        />
-        {/* إغلاق المصدر النهائي - نفس بيانات هوية المصدر تُكرَّر هنا عمدًا (رقم قفل السلامة/
-            الجهة) بدل الاكتفاء بالتوقيع فقط، فقد لا يكون نفس مصدر بطاقة الإصدار. */}
-        <PersonSection
-          bg="var(--color-bg-source)"
-          title="إغلاق المصدر النهائي / Final Issuer Close-out"
-          employeeId={permit.closingSource.employeeId}
-          fullName={permit.closingSource.fullName}
-          mobile={permit.closingSource.mobile}
-          extraRows={[
-            ['رقم قفل السلامة', permit.sourceLockNumber],
-            ['الجهة', permit.authorityOfficialName]
-          ]}
-          dateTime={permit.closingSource.closeDateTime}
-          signature={permit.closingSource.closeSignature}
-        />
+        {/* بيانات المصدر/المستلم جنبًا إلى جنب (عمودان) بدل التتابع الرأسي - يقلّص الارتفاع
+            الكلي للصفحة بمقدار كبير (كانت أكثر ما يستهلك ارتفاعًا)، مع إبقاء تخطيط داخلي
+            لكل بطاقة يضمن ظهور كل بيان بوضوح رغم ضيق نصف العرض (انظر PersonSection). */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginTop: 8 }}>
+          <PersonSection
+            bg="var(--color-bg-source)"
+            title="بيانات المصدر / Issuer Data"
+            employeeId={permit.source.employeeId}
+            fullName={permit.source.fullName}
+            mobile={permit.source.mobile}
+            extraRows={[
+              ['رقم قفل السلامة', permit.sourceLockNumber],
+              ['اسم مسؤول الجهة المعنية', permit.authorityOfficialName],
+              ['نوع الجهة المعنية', permit.authorityType]
+            ]}
+            dateTime={permit.source.transferDateTime}
+            signature={permit.source.transferSignature}
+          />
+          <PersonSection
+            bg="var(--color-bg-receiver)"
+            title="بيانات المستلم / Receiver Data"
+            employeeId={permit.receiver.employeeId}
+            fullName={permit.receiver.fullName}
+            mobile={permit.receiver.mobile}
+            extraRows={[
+              ['رقم قفل السلامة', permit.receiverLockNumber],
+              ['نوع الجهة المستلمة', permit.receiverEntityType]
+            ]}
+            dateTime={permit.receiver.receiveDateTime}
+            signature={permit.receiver.receiveSignature}
+          />
+        </div>
+        {/* إغلاق المستلم/إغلاق المصدر النهائي جنبًا إلى جنب بنفس المبدأ - إغلاق المصدر
+            النهائي يُكرِّر عمدًا بيانات هوية المصدر (رقم قفل السلامة/الجهة) بدل الاكتفاء
+            بالتوقيع فقط، فقد لا يكون نفس مصدر بطاقة الإصدار. */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginTop: 8 }}>
+          <PersonSection
+            bg="var(--color-bg-receiver)"
+            title="إغلاق/إلغاء التصريح بواسطة المستلم / Closing or Cancelling by Receiver"
+            employeeId={permit.receiver.employeeId}
+            fullName={hadHandover ? undefined : closingReceiverName}
+            extraRows={[
+              ['الحالة', permit.status],
+              permit.status === 'ملغي' ? ['سبب الإلغاء', permit.cancellationReason] : null,
+              hadHandover ? ['المستلم', originalReceiverName] : null,
+              hadHandover ? ['المستلم المغلق', closingReceiverName] : null
+            ].filter(Boolean)}
+            dateTime={permit.receiver.closeDateTime}
+            signature={permit.receiver.closeSignature}
+          />
+          <PersonSection
+            bg="var(--color-bg-source)"
+            title="إغلاق المصدر النهائي / Final Issuer Close-out"
+            employeeId={permit.closingSource.employeeId}
+            fullName={permit.closingSource.fullName}
+            mobile={permit.closingSource.mobile}
+            extraRows={[
+              ['رقم قفل السلامة', permit.sourceLockNumber],
+              ['الجهة', permit.authorityOfficialName]
+            ]}
+            dateTime={permit.closingSource.closeDateTime}
+            signature={permit.closingSource.closeSignature}
+          />
+        </div>
 
         {/* شريط ختامي واحد فقط لكل الصفحتين: QR كامل + رقم التصريح + مدة العمل - بلا تكرار
             لـQR الكامل في الصفحة الثانية (يكفي QR واحد بالمستند، عدا الرمز المصغّر بالرأس
@@ -287,12 +295,19 @@ function PersonSection({ bg, title, employeeId, fullName, mobile, extraRows, dat
   const dateLines = formatBilingualDateLines(dateTime);
 
   return (
-    <section style={{ marginTop: 8, background: bg, border: '1px solid #E2E5EA', boxShadow: '0 1px 3px rgba(0,0,0,0.05)', borderRadius: 'var(--radius-lg)', padding: 10 }}>
+    <section style={{ minWidth: 0, background: bg, border: '1px solid #E2E5EA', boxShadow: '0 1px 3px rgba(0,0,0,0.05)', borderRadius: 'var(--radius-lg)', padding: 10 }}>
       <div style={{ fontWeight: 'bold', fontSize: 13, color: 'var(--color-primary)' }}>{titleAr}</div>
       {titleEn && <div style={{ fontSize: 10, opacity: 0.75, marginBottom: 6 }}>{titleEn}</div>}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 6, fontSize: 11 }}>
+      {/* الاسم بسطره الخاص بعرض كامل (أكثر الحقول عُرضة للطول)، ثم الرقم الوظيفي والجوال
+          يتشاركان سطرًا ثانيًا - بدل ثلاثة أعمدة متجاورة قد تُضيّق كل حقل بشدة الآن بعد أن
+          أصبحت بطاقة الطرف نفسها بنصف عرض الصفحة فقط (انظر الشبكة في PermitPrint أعلاه). */}
+      {fullName && (
+        <div style={{ fontSize: 11, marginBottom: 6 }}>
+          <Field label={t('fullName', 'ar')} value={fullName} />
+        </div>
+      )}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6, fontSize: 11 }}>
         {employeeId && <Field label={t('employeeId', 'ar')} value={employeeId} />}
-        {fullName && <Field label={t('fullName', 'ar')} value={fullName} />}
         {mobile && <Field label={t('mobile', 'ar')} value={mobile} />}
       </div>
 

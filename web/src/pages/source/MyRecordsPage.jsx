@@ -4,7 +4,7 @@ import { searchPermits } from '../../services/permitsService.js';
 import AppLayout from '../../components/common/AppLayout.jsx';
 import StickyHeaderTable from '../../components/common/StickyHeaderTable.jsx';
 import { convertArabicDigitsToEnglish } from '../../hooks/useArabicIndicDigits.js';
-import { formatDateTimeShort } from '../../hooks/useHijriGregorianDate.js';
+import { formatDateTimeShort, combineDateAndTime } from '../../hooks/useHijriGregorianDate.js';
 
 // حالات ما بعد توليد رقم التصريح (بعد اعتماد المصدر) - أي شيء غير هذه المجموعة قبل التوليد.
 const ISSUED_STATUSES = ['نشط', 'بانتظار إغلاق المصدر', 'بانتظار تأكيد الإلغاء من المصدر'];
@@ -71,7 +71,7 @@ export default function MyRecordsPage() {
             <>
               <td>{p['نوع التصريح']}</td>
               <td>{p['حالة التصريح']}</td>
-              <td>{formatDateTimeShort(p['تاريخ الانشاء'])}</td>
+              <td>{formatDateTimeShort(combineDateAndTime(p['تاريخ الانشاء'], p['وقت الانشاء']))}</td>
               <td>
                 <button onClick={() => navigate('/permit?id=' + p['معرف انشاء التصريح'])} style={{ background: 'var(--color-primary)', color: '#fff', fontSize: 11 }}>
                   فتح
