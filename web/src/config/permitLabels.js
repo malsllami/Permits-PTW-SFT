@@ -68,7 +68,7 @@ export const PERMIT_LABELS = {
   employeeData: { ar: 'بيانات الموظف', en: 'Employee Data' },
   approvalData: { ar: 'بيانات الاعتماد', en: 'Approval Data' },
   cardValidity: { ar: 'صلاحية البطاقة', en: 'Card Validity' },
-  openInMaps: { ar: 'فتح في الخرائط', en: 'Open in Maps' }
+  openInMaps: { ar: '📍 فتح الموقع على الخريطة', en: '📍 Open Location on Map' }
 };
 
 export function t(key, lang) {

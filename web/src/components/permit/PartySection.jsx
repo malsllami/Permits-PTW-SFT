@@ -7,32 +7,6 @@ import { remainingDaysTone, WORK_FIELD_LABEL_BG, WORK_FIELD_LABEL_TEXT, WORK_FIE
 import { formatBilingualDateLines, formatDateTimeTwoLines } from '../../hooks/useHijriGregorianDate.js';
 
 /**
- * خلية مضغوطة (أيقونة + قيمة فقط، بلا تسمية منفصلة فوقها) - تُستخدم في "بيانات الموظف"
- * تحديدًا حيث تسمية القسم نفسه تكفي للسياق (اسم/رقم وظيفي/جوال/بطاقة معروفة الترتيب دائمًا)،
- * فتكرار اسم كل حقل فوق قيمته كان يهدر مساحة دون فائدة حسب الملاحظة الصريحة.
- */
-export function CompactCell({ icon, value, full, valueBg, valueText, twoLines }) {
-  if (value === undefined || value === null || value === '') return null;
-  return (
-    <div style={{
-      gridColumn: full ? '1 / -1' : undefined, display: 'flex', alignItems: 'center', gap: 8,
-      background: valueBg || '#fff', boxShadow: valueBg ? undefined : '0 1px 3px rgba(0,0,0,0.06)',
-      borderRadius: 'var(--radius-md)', padding: '0 12px', minHeight: 40, boxSizing: 'border-box'
-    }}>
-      {icon && <span style={{ flexShrink: 0, opacity: 0.75 }}>{icon}</span>}
-      {twoLines ? (
-        <div style={{ minWidth: 0 }}>
-          <div style={{ fontWeight: 'bold', fontSize: 13, color: valueText || 'var(--color-text)' }}>{value.date}</div>
-          <div style={{ fontWeight: 500, fontSize: 12, opacity: 0.75, color: valueText || 'var(--color-text)' }}>{value.time}</div>
-        </div>
-      ) : (
-        <div style={{ fontWeight: 'bold', fontSize: 13, color: valueText || 'var(--color-text)', minWidth: 0 }}>{value}</div>
-      )}
-    </div>
-  );
-}
-
-/**
  * حقل بيانات موظف - نفس مظهر WorkField تمامًا (تسمية صغيرة أعلى القيمة، كل حقل بمربعه
  * المستقل المستدير الزوايا) بدل الصف المتصل السابق - "توزيع متناسق" موحّد مع بطاقة
  * "بيانات العمل" حسب الملاحظة الصريحة، مع الحفاظ التام على البيانات نفسها المعروضة.
@@ -170,32 +144,38 @@ export default function PartySection({ title, theme, checklist, employeeId, full
         {(extraFields && extraFields.length > 0) || dateTimeLines || gps || editable || savedSignature ? (
           <>
             <SubsectionLabel spaced>{t('approvalData', lang)}</SubsectionLabel>
-            {extraFields && extraFields.length > 0 && (
-              <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr)', gap: 8, fontSize: 12, marginBottom: dateTimeLines || gps ? 8 : 0 }}>
-                {extraFields.map((field) => (
+            {((extraFields && extraFields.length > 0) || dateTimeLines) && (
+              <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr)', gap: 8, fontSize: 12, marginBottom: gps ? 8 : 0 }}>
+                {extraFields && extraFields.map((field) => (
                   <ExtraField key={field.label} editable={editable} {...field} />
                 ))}
+                {/* التاريخ والوقت ببطاقة صغيرة مطابقة لبقية حقول "بيانات الاعتماد" (وليس
+                    شريطًا عريضًا منفردًا) - أقرب لبطاقات الحقول الصغيرة في كل مكان آخر. */}
+                {dateTimeLines && (
+                  <div className="wf-field" style={{
+                    background: '#fff', boxShadow: '0 1px 3px rgba(0,0,0,0.06)', borderRadius: 'var(--radius-md)',
+                    padding: '8px 10px', height: 90, boxSizing: 'border-box', display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 4
+                  }}>
+                    <div style={{ fontWeight: 500, fontSize: 10, opacity: 0.65, display: 'flex', alignItems: 'center', gap: 4 }}>
+                      <Icon name="schedule" size={12} />{t('dateTime', lang)}
+                    </div>
+                    <div style={{ fontWeight: 'bold', fontSize: 13 }}>{dateTimeLines.date}</div>
+                    <div style={{ fontWeight: 500, fontSize: 12, opacity: 0.75 }}>{dateTimeLines.time}</div>
+                  </div>
+                )}
               </div>
             )}
 
-            {dateTimeLines && (
-              <CompactCell full twoLines icon={<Icon name="schedule" size={16} />} value={dateTimeLines} />
-            )}
-
+            {/* زر واحد نظيف بدل عرض الإحداثيات الخام بارزة - 95٪ من المستخدمين لن يقرؤوا
+                رقمَي خط الطول/العرض، والزر نفسه يفتح Google Maps مباشرة بنفس الإحداثيات. */}
             {gps && (
-              <div style={{ marginTop: 8, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, background: '#fff', boxShadow: '0 1px 3px rgba(0,0,0,0.06)', borderRadius: 'var(--radius-md)', padding: '9px 12px', fontSize: 12 }}>
-                <span style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
-                  <Icon name="location_on" size={16} />
-                  <strong style={{ fontWeight: 'bold' }}>{gps}</strong>
-                </span>
-                <a
-                  href={'https://www.google.com/maps?q=' + gps}
-                  target="_blank" rel="noreferrer"
-                  style={{ flexShrink: 0, fontSize: 11, fontWeight: 'bold', color: 'var(--color-primary)', textDecoration: 'none', whiteSpace: 'nowrap' }}
-                >
-                  {t('openInMaps', lang)}
-                </a>
-              </div>
+              <a
+                href={'https://www.google.com/maps?q=' + gps}
+                target="_blank" rel="noreferrer"
+                style={{ marginTop: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, background: '#fff', boxShadow: '0 1px 3px rgba(0,0,0,0.06)', borderRadius: 'var(--radius-md)', padding: '10px 12px', fontSize: 13, fontWeight: 'bold', color: 'var(--color-primary)', textDecoration: 'none' }}
+              >
+                {t('openInMaps', lang)}
+              </a>
             )}
 
             <div style={{ marginTop: 8 }}>

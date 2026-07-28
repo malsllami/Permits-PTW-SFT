@@ -29,18 +29,41 @@ export default function PermitPrint({ permit, companyName, printLang }) {
 
   const workDuration = computeWorkDurationLabel(permit.source.approvalDateTime, permit.closingSource.closeDateTime);
 
+  // توقيع المصدر واحد فعليًا طوال دورة الإصدار (يُرسم عند التحويل للمستلم ويُعاد استخدامه
+  // نفسه عند اعتماد إصدار الرقم لاحقًا - لا توقيع جديد فعليًا) - "ملخص التواقيع" يعرضه
+  // مرة واحدة فقط (ضمن "إصدار التصريح") بدل تكراره كتوقيعين منفصلين لنفس الشخص لنفس التوقيع؛
+  // سجل رحلة التصريح (الجدول) يبقى يُظهر كلا الحدثين بتوقيتيهما المختلفين كما هما (تسلسل
+  // زمني حقيقي، وليس صورة توقيع). "الإغلاق" أيضًا يُفصَّل لحدثين حقيقيين بتوقيعين مختلفين:
+  // إغلاق المستلم أولًا ثم الإغلاق النهائي للمصدر.
   const journeyStages = [
     { label: 'إنشاء التصريح', dateTime: formatDateTimeShort(combineDateAndTime(permit.createdDate, permit.createdTime)), name: permit.source.fullName, signature: '' },
-    { label: 'اعتماد المصدر (تحويل للمستلم)', dateTime: formatDateTimeShort(permit.source.transferDateTime), name: permit.source.fullName, signature: permit.source.transferSignature },
+    { label: 'اعتماد المصدر (تحويل للمستلم)', dateTime: formatDateTimeShort(permit.source.transferDateTime), name: permit.source.fullName, signature: '' },
     { label: 'اعتماد المستلم (الاستلام)', dateTime: formatDateTimeShort(permit.receiver.receiveDateTime), name: permit.receiver.fullName, signature: permit.receiver.receiveSignature },
     { label: 'إصدار التصريح', dateTime: formatDateTimeShort(permit.source.approvalDateTime), name: permit.source.fullName, signature: permit.source.approvalSignature },
-    { label: 'الإغلاق', dateTime: formatDateTimeShort(permit.closingSource.closeDateTime), name: permit.closingSource.fullName, signature: permit.closingSource.closeSignature }
+    { label: 'إغلاق المستلم', dateTime: formatDateTimeShort(permit.receiver.closeDateTime), name: permit.receiver.fullName, signature: permit.receiver.closeSignature },
+    { label: 'الإغلاق النهائي (المصدر)', dateTime: formatDateTimeShort(permit.closingSource.closeDateTime), name: permit.closingSource.fullName, signature: permit.closingSource.closeSignature }
   ];
 
   return (
     <div className="permit-print-root">
       <PrintPage pageNumber={1} totalPages={2} permit={permit} companyName={companyName} permitTitle={permitTitle}>
         <WorkDataSection permit={permit} />
+
+        {/* رقم التصريح + QR مباشرة أسفل بيانات المهمة - أهم معلومة في المستند تظهر أولًا،
+            قبل بيانات الأشخاص، بدل انتظارها في نهاية الصفحة بعد كل البطاقات. */}
+        <section style={{ marginTop: 8, display: 'flex', alignItems: 'center', gap: 14, border: '1px solid #E2E5EA', borderRadius: 'var(--radius-lg)', padding: 10, boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
+          <QRCodeView link={permit.permitLink} size={64} />
+          <div style={{ fontSize: 11, flex: 1, minWidth: 0 }}>
+            {/* رقم التصريح بسطره الخاص بعرض كامل (اتجاه ثابت LTR بلا التفاف) - لا يُوضَع
+                بجانب مدة العمل في نفس الصف كما كان، لأن خلط أرقام/فواصل إنجليزية مع محتوى
+                عربي بمساحة ضيقة قد يجعل الأجزاء تُعاد ترتيبها بصريًا (Bidi) بشكل مربك. */}
+            <div style={{ opacity: 0.7 }}>{t('permitNumber', 'ar')}</div>
+            <div style={{ fontWeight: 'bold', fontSize: 13, color: 'var(--color-success)', direction: 'ltr', textAlign: 'right', whiteSpace: 'nowrap' }}>{permit.permitNumber || '—'}</div>
+            <div style={{ opacity: 0.7, marginTop: 6 }}>{t('workDuration', 'ar')}</div>
+            <div style={{ fontWeight: 'bold' }}>{workDuration || '—'}</div>
+          </div>
+        </section>
+
         {/* بيانات المصدر/المستلم جنبًا إلى جنب (عمودان) بدل التتابع الرأسي - يقلّص الارتفاع
             الكلي للصفحة بمقدار كبير (كانت أكثر ما يستهلك ارتفاعًا)، مع إبقاء تخطيط داخلي
             لكل بطاقة يضمن ظهور كل بيان بوضوح رغم ضيق نصف العرض (انظر PersonSection). */}
@@ -105,22 +128,6 @@ export default function PermitPrint({ permit, companyName, printLang }) {
             signature={permit.closingSource.closeSignature}
           />
         </div>
-
-        {/* شريط ختامي واحد فقط لكل الصفحتين: QR كامل + رقم التصريح + مدة العمل - بلا تكرار
-            لـQR الكامل في الصفحة الثانية (يكفي QR واحد بالمستند، عدا الرمز المصغّر بالرأس
-            المتكرر لغرض تجميع الأوراق إن تفرّقت فقط). */}
-        <section style={{ marginTop: 10, display: 'flex', alignItems: 'center', gap: 14, border: '1px solid #E2E5EA', borderRadius: 'var(--radius-lg)', padding: 10, boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
-          <QRCodeView link={permit.permitLink} size={64} />
-          <div style={{ fontSize: 11, flex: 1, minWidth: 0 }}>
-            {/* رقم التصريح بسطره الخاص بعرض كامل (اتجاه ثابت LTR بلا التفاف) - لا يُوضَع
-                بجانب مدة العمل في نفس الصف كما كان، لأن خلط أرقام/فواصل إنجليزية مع محتوى
-                عربي بمساحة ضيقة قد يجعل الأجزاء تُعاد ترتيبها بصريًا (Bidi) بشكل مربك. */}
-            <div style={{ opacity: 0.7 }}>{t('permitNumber', 'ar')}</div>
-            <div style={{ fontWeight: 'bold', fontSize: 13, color: 'var(--color-success)', direction: 'ltr', textAlign: 'right', whiteSpace: 'nowrap' }}>{permit.permitNumber || '—'}</div>
-            <div style={{ opacity: 0.7, marginTop: 6 }}>{t('workDuration', 'ar')}</div>
-            <div style={{ fontWeight: 'bold' }}>{workDuration || '—'}</div>
-          </div>
-        </section>
       </PrintPage>
 
       <PrintPage pageNumber={2} totalPages={2} permit={permit} companyName={companyName} permitTitle={permitTitle} isLast>

@@ -1027,8 +1027,11 @@ export default function PermitDocumentViewer({ creationId, accessMode, currentUs
             padding: '10px 0', marginTop: 8, background: 'linear-gradient(to top, var(--color-background) 70%, transparent)'
           }}
         >
+          {/* نص الزر يواكب حالة التصريح الفعلية - "عرض نسخة" أثناء تنفيذ العمل (الوثيقة لم
+              تكتمل بعد) و"النسخة الرسمية النهائية" فقط بعد الإغلاق الكامل فعليًا، بدل إيحاء
+              مبكر بأن الملف نهائي/رسمي قبل اكتمال دورة حياة التصريح. */}
           <button disabled={pdfExporting} onClick={handleDownloadPdf} style={{ background: 'var(--color-secondary)', color: '#fff', boxShadow: '0 2px 10px rgba(0,0,0,0.15)' }}>
-            {pdfExporting ? 'جارٍ تجهيز الملف...' : '📄 تنزيل نسخة PDF الرسمية'}
+            {pdfExporting ? 'جارٍ تجهيز الملف...' : (showFinalInstructions ? '📄 عرض النسخة الرسمية النهائية' : '📄 عرض نسخة تصريح العمل')}
           </button>
           <button onClick={handleCloseAndReturn} className="secondary" style={{ boxShadow: '0 2px 10px rgba(0,0,0,0.1)' }}>
             {employee ? 'إغلاق والعودة للرئيسية' : 'إغلاق'}

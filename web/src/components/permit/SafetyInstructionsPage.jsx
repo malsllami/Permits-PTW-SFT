@@ -19,7 +19,7 @@ export function useSafetyInstructions(permitType) {
  * بعد الإغلاق. زر التبديل نفسه داخل "no-print" فيختفي تلقائيًا عند الطباعة/PDF - اللغة
  * التي كانت مختارة لحظة الطباعة (يُختارها المستخدم صراحة قبل الطباعة) هي ما يُطبع فعليًا.
  */
-export function SafetyInstructionsTable({ instructions, lang, onLangChange }) {
+export function SafetyInstructionsTable({ instructions, lang, onLangChange, responsiveFontSize }) {
   if (!instructions || instructions.length === 0) return null;
   return (
     <div>
@@ -32,13 +32,23 @@ export function SafetyInstructionsTable({ instructions, lang, onLangChange }) {
             <tr><th>{lang === 'ar' ? 'بند تعليمات السلامة' : 'Safety Instruction'}</th></tr>
           </thead>
           <tbody>
-            {instructions.map((item) => (
-              <tr key={item.row}>
-                <td style={{ textAlign: lang === 'ar' ? 'right' : 'left', direction: lang === 'ar' ? 'rtl' : 'ltr' }}>
-                  {lang === 'ar' ? item.textAr : (item.textEn || item.textAr)}
-                </td>
-              </tr>
-            ))}
+            {instructions.map((item) => {
+              const text = lang === 'ar' ? item.textAr : (item.textEn || item.textAr);
+              // على الجوال فقط (responsiveFontSize) - كلما طالت الجملة صغُر خطها تدريجيًا
+              // (100% ← 90% ← 83%، أي 18 ← 16 ← 15 عند الحجم الافتراضي) قبل أن تُضطر
+              // للالتفاف لسطر جديد - نسبةً من حجم الخط الحالي (بما يشمل زر "A+" للتكبير،
+              // فلا يتعارض التصغير التدريجي مع تكبير المستخدم اليدوي). نسخة PDF/الطباعة
+              // لا تستخدم هذا الخيار إطلاقًا فيبقى حجمها الحالي بلا أي تغيير.
+              const shrinkRatio = text.length > 90 ? 0.83 : text.length > 60 ? 0.9 : 1;
+              const fontSize = responsiveFontSize ? 'calc(var(--table-font-size, 18px) * ' + shrinkRatio + ')' : undefined;
+              return (
+                <tr key={item.row}>
+                  <td style={{ textAlign: lang === 'ar' ? 'right' : 'left', direction: lang === 'ar' ? 'rtl' : 'ltr', fontSize }}>
+                    {text}
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>
@@ -85,7 +95,7 @@ export default function SafetyInstructionsPage({ permitType, lang: controlledLan
           <strong>A+</strong> تكبير النص
         </button>
       </div>
-      <SafetyInstructionsTable instructions={instructions} lang={lang} onLangChange={setLang} />
+      <SafetyInstructionsTable instructions={instructions} lang={lang} onLangChange={setLang} responsiveFontSize />
     </div>
   );
 }

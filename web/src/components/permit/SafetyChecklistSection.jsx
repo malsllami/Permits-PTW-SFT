@@ -61,35 +61,50 @@ export default function SafetyChecklistSection({ permitType, stage, checkedMap, 
         </strong>
         {open && <SectionLanguageToggle lang={lang} onChange={onLangChange} />}
       </div>
-      {open && items.map((item) => {
-        const checked = !!checkedMap[item.row];
-        return (
-          <label key={item.row} className="safety-item" style={{ display: 'flex', gap: 8, alignItems: 'center', minHeight: 34, fontSize: 12, color: checked ? '#1B5E20' : undefined, fontWeight: checked ? 'bold' : undefined }}>
-            {readOnly ? (
-              // بعد إغلاق المرحلة (وعند الطباعة/PDF تحديدًا) نستخدم مربّعًا مرسومًا بالكود
-              // بدل input[type=checkbox] الأصلي - محركات الطباعة/PDF في المتصفحات لا تُظهر
-              // دائمًا لون accent-color لصندوق الاختيار الأصلي بشكل موثوق، بينما هذا العنصر
-              // (خلفية/حدود عادية) يُطبع بنفس الشكل واللون الأخضر في كل الحالات دون استثناء.
-              <span style={{
-                marginTop: 1, width: 12, height: 12, minWidth: 12, borderRadius: 3, flexShrink: 0,
-                display: 'inline-flex', alignItems: 'center', justifyContent: 'center', lineHeight: 1,
-                background: checked ? '#2E9E49' : '#fff', border: '1.5px solid ' + (checked ? '#2E9E49' : '#999'),
-                color: '#fff', fontSize: 9, fontWeight: 'bold'
-              }}>
-                {checked ? '✓' : ''}
-              </span>
-            ) : (
-              <input
-                type="checkbox"
-                checked={checked}
-                onChange={(e) => onToggle(item.row, e.target.checked)}
-                style={{ marginTop: 2, width: 12, height: 12, accentColor: '#2E9E49' }}
-              />
-            )}
-            <span>{lang === 'ar' ? item.textAr : (item.textEn || item.textAr)}</span>
-          </label>
-        );
-      })}
+      {open && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 6 }}>
+          {items.map((item) => {
+            const checked = !!checkedMap[item.row];
+            return (
+              // كل بند بطاقته المستقلة الصغيرة المستديرة الزوايا (بدل صف قائمة طويل متصل) -
+              // أقرب لواجهات iOS الحديثة، وتُميَّز البطاقة نفسها بخلفية خضراء فاتحة عند
+              // اكتمال البند بدل الاعتماد على لون النص وحده.
+              <label
+                key={item.row} className="safety-item"
+                style={{
+                  display: 'flex', gap: 8, alignItems: 'center', minHeight: 40, fontSize: 12,
+                  padding: '8px 10px', borderRadius: 'var(--radius-md)',
+                  background: checked ? '#EAF7EE' : '#fff', boxShadow: '0 1px 3px rgba(0,0,0,0.06)',
+                  color: checked ? '#1B5E20' : undefined, fontWeight: checked ? 'bold' : undefined
+                }}
+              >
+                {readOnly ? (
+                  // بعد إغلاق المرحلة (وعند الطباعة/PDF تحديدًا) نستخدم مربّعًا مرسومًا بالكود
+                  // بدل input[type=checkbox] الأصلي - محركات الطباعة/PDF في المتصفحات لا تُظهر
+                  // دائمًا لون accent-color لصندوق الاختيار الأصلي بشكل موثوق، بينما هذا العنصر
+                  // (خلفية/حدود عادية) يُطبع بنفس الشكل واللون الأخضر في كل الحالات دون استثناء.
+                  <span style={{
+                    marginTop: 1, width: 12, height: 12, minWidth: 12, borderRadius: 3, flexShrink: 0,
+                    display: 'inline-flex', alignItems: 'center', justifyContent: 'center', lineHeight: 1,
+                    background: checked ? '#2E9E49' : '#fff', border: '1.5px solid ' + (checked ? '#2E9E49' : '#999'),
+                    color: '#fff', fontSize: 9, fontWeight: 'bold'
+                  }}>
+                    {checked ? '✓' : ''}
+                  </span>
+                ) : (
+                  <input
+                    type="checkbox"
+                    checked={checked}
+                    onChange={(e) => onToggle(item.row, e.target.checked)}
+                    style={{ marginTop: 2, width: 12, height: 12, accentColor: '#2E9E49' }}
+                  />
+                )}
+                <span>{lang === 'ar' ? item.textAr : (item.textEn || item.textAr)}</span>
+              </label>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }

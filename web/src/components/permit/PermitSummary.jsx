@@ -87,11 +87,13 @@ export function SummaryTables({ permit }) {
           name={permit.source.fullName + ' (' + permit.source.employeeId + ')'}
           dateTime={formatDateTimeShort(combineDateAndTime(permit.createdDate, permit.createdTime))}
         />
+        {/* توقيع المصدر واحد فعليًا طوال دورة الإصدار (يُرسم هنا عند التحويل ويُعاد استخدامه
+            نفسه لاحقًا عند إصدار الرقم رقم ④ - لا توقيع جديد) - لا تُعرض صورته هنا لتفادي
+            تكرارها كتوقيعين لنفس الشخص/نفس التوقيع؛ التاريخ/الوقت يبقيان معروضين. */}
         <TimelineEventCard
           number="②" color={THEMES.red.border} label="اعتماد المصدر (تحويل للمستلم)"
           name={permit.source.fullName + ' (' + permit.source.employeeId + ')'}
           dateTime={formatDateTimeShort(permit.source.transferDateTime)}
-          signature={permit.source.transferSignature}
         />
         <TimelineEventCard
           number="③" color={THEMES.yellow.border} label="اعتماد المستلم (الاستلام)"
