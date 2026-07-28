@@ -1,16 +1,23 @@
 import React, { useEffect, useState } from 'react';
 import { getSafetyItems } from '../../services/settingsService.js';
-import SectionLanguageToggle, { useSectionLanguage } from './SectionLanguageToggle.jsx';
+import SectionLanguageToggle from './SectionLanguageToggle.jsx';
 import { t } from '../../config/permitLabels.js';
 import Icon from '../common/Icon.jsx';
 
-/** بنود السلامة (Checkbox) تُقرأ ديناميكيًا من جدول "إعدادات السلامة" حسب (نوع التصريح، المرحلة). */
-export default function SafetyChecklistSection({ permitType, stage, checkedMap, onToggle, readOnly, onCompletionChange }) {
+/**
+ * "تأكيد الإجراءات" (Checkbox) تُقرأ ديناميكيًا من جدول "إعدادات السلامة" حسب (نوع
+ * التصريح، المرحلة) - إقرار من الموظف بأنه نفّذ الإجراءات فعليًا، وليست تعليمات للقراءة
+ * فقط (تلك منفصلة تمامًا - انظر SafetyAcknowledgmentGate/SafetyInstructionsPage).
+ * لغة العرض تُضبط من المكوّن الأب (PartySection عبر PermitDocumentViewer) وليست حالة
+ * داخلية، لتنعكس نفس اللغة على بقية بطاقة الطرف (التسميات/الأزرار) دفعة واحدة.
+ */
+export default function SafetyChecklistSection({ permitType, stage, checkedMap, onToggle, readOnly, onCompletionChange, lang, onLangChange, forceOpen }) {
   const [items, setItems] = useState([]);
-  const [lang, setLang] = useSectionLanguage('ar');
-  // مطويّة افتراضيًا في وضع القراءة فقط (بعد تجاوز المرحلة) لتوفير مساحة، ومفتوحة دائمًا
-  // أثناء التعبئة الفعلية (يحتاج المستخدم رؤية البنود ليضع علامة عليها).
-  const [open, setOpen] = useState(!readOnly);
+  // مطويّة افتراضيًا دائمًا أثناء دورة الحياة التفاعلية (تعبئة أو قراءة مرحلة سابقة) لتقليل
+  // طول الصفحة وسرعة الإدخال - تُفتح فقط عند الحاجة الفعلية بضغطة المستخدم. أما شاشة العرض
+  // النهائية بعد الإغلاق الكامل (forceOpen) فتُظهر كل البنود دومًا بلا طيّ إطلاقًا، لأنها
+  // وثيقة رسمية يجب أن تعرض كل شيء دفعة واحدة.
+  const [open, setOpen] = useState(!!forceOpen);
 
   useEffect(() => {
     let active = true;
@@ -38,16 +45,21 @@ export default function SafetyChecklistSection({ permitType, stage, checkedMap, 
   return (
     <div className="safety-checklist" style={{ border: '1px solid #e3e6eb', borderRadius: 'var(--radius-md)', padding: 10, marginTop: 10 }}>
       <div
-        onClick={readOnly ? () => setOpen((v) => !v) : undefined}
-        style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: open ? 4 : 0, cursor: readOnly ? 'pointer' : 'default' }}
+        onClick={forceOpen ? undefined : () => setOpen((v) => !v)}
+        style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: open ? 4 : 0, cursor: forceOpen ? 'default' : 'pointer' }}
       >
         {/* أيقونة واحدة فقط (السهم) بدل درع+سهم متضادين في الجهة - السهم وحده يكفي للدلالة
-            على قابلية الطي/الفتح، ويبقى بجانب النص مباشرة في نفس الجهة دائمًا. */}
-        <strong style={{ fontSize: 13, display: 'flex', alignItems: 'center', gap: 6 }}>
-          {readOnly && <Icon name={open ? 'expand_less' : 'chevron_left'} size={16} />}
-          {t('safetyItems', lang)} ({items.length})
+            على قابلية الطي/الفتح، ويبقى بجانب النص مباشرة في نفس الجهة دائمًا. مطويّة
+            دائمًا افتراضيًا (تعبئة أو قراءة) لتقليل طول الصفحة - نص فرعي "مراجعة الإجراءات"
+            يوضّح أنها قابلة للفتح عند الحاجة. */}
+        <strong style={{ fontSize: 13, display: 'flex', flexDirection: 'column', gap: 2 }}>
+          <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            {!forceOpen && <Icon name={open ? 'expand_less' : 'chevron_left'} size={16} />}
+            {t('safetyItems', lang)} ({items.length})
+          </span>
+          {!open && <span style={{ fontSize: 11, fontWeight: 500, opacity: 0.65 }}>{t('reviewActions', lang)}</span>}
         </strong>
-        {open && <SectionLanguageToggle lang={lang} onChange={setLang} />}
+        {open && <SectionLanguageToggle lang={lang} onChange={onLangChange} />}
       </div>
       {open && items.map((item) => {
         const checked = !!checkedMap[item.row];

@@ -248,8 +248,12 @@ table.app-table tbody tr:nth-child(even) {
    مستند رسمي أخطر بكثير من عيب بصري بسيط. الحل الصحيح هو تقليل ارتفاع محتوى الصفحة نفسه
    (شبكة عمودين لبطاقات الأطراف - انظر PermitPrint.jsx) بدل قصّ أي فائض عنه.
    min-height أدناه فقط - بلا قصّ - لضمان عدم فقدان أي بيانات إطلاقًا مهما كان طول المحتوى. */
-.print-page table.app-table { font-size: 10px; }
-.print-page table.app-table th, .print-page table.app-table td { padding: 4px; }
+/* min-width:640px في القاعدة العامة لـ.app-table مصمم لحماية جداول الشاشة العريضة من
+   الانضغاط المفرط - داخل مستند PDF ثابت المقاس هذا الحد الأدنى كان يجبر الجدول على تجاوز
+   حدود بطاقته/الصفحة فعليًا (خصوصًا بعد تصغير بطاقات الأطراف لنصف عرض الصفحة)، فيظهر
+   "تداخل" وخروج عن الحدود بصريًا. يُلغى تمامًا هنا: لا حاجة لحماية عرض داخل صفحة A4 ثابتة. */
+.print-page table.app-table { font-size: 10px; min-width: 0; width: 100%; table-layout: fixed; }
+.print-page table.app-table th, .print-page table.app-table td { padding: 4px; overflow-wrap: break-word; word-break: break-word; }
 
 @media print {
   /* هامش الصفحة صفر هنا عمدًا - كل صفحة طباعة (.print-page) تدير حشوتها الداخلية بنفسها

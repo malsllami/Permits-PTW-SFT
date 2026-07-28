@@ -21,7 +21,10 @@ export const PERMIT_LABELS = {
   signature: { ar: 'التوقيع', en: 'Signature' },
   dateTime: { ar: 'التاريخ والوقت', en: 'Date/Time' },
   gps: { ar: 'الموقع الجغرافي', en: 'GPS' },
-  safetyItems: { ar: 'بنود السلامة', en: 'Safety Items' },
+  // اسم رسمي بدل "بنود السلامة/Checklist" - هذه إقرار من الموظف بتنفيذ الإجراءات فعليًا،
+  // وليست تعليمات سلامة للقراءة فقط (تلك منفصلة تمامًا - SafetyInstructionsPage).
+  safetyItems: { ar: 'تأكيد الإجراءات', en: 'Action Confirmation' },
+  reviewActions: { ar: 'مراجعة الإجراءات', en: 'Review Actions' },
   permitNumber: { ar: 'رقم التصريح', en: 'Permit No.' },
   status: { ar: 'الحالة', en: 'Status' },
   workDuration: { ar: 'مدة تنفيذ العمل', en: 'Duration of Work' },
@@ -44,7 +47,28 @@ export const PERMIT_LABELS = {
   shareWithSourceForClosing: { ar: 'مشاركة التصريح مع المصدر للإغلاق', en: 'Share Permit with Issuer for Closing' },
   permitLink: { ar: 'رابط التصريح', en: 'Permit Link' },
   copyLink: { ar: 'نسخ الرابط', en: 'Copy Link' },
-  linkCopied: { ar: 'تم النسخ', en: 'Copied' }
+  linkCopied: { ar: 'تم النسخ', en: 'Copied' },
+  // نصوص أزرار/حالات لكل بطاقة طرف - تتبع لغة تلك البطاقة تحديدًا (sourceLang/receiverLang/
+  // receiverCloseLang/sourceCloseLang) وليست ثابتة على العربية بعد الآن.
+  locatingAndSending: { ar: 'جارٍ تحديد الموقع والإرسال...', en: 'Locating & sending...' },
+  processing: { ar: 'جارٍ التنفيذ...', en: 'Processing...' },
+  closingInProgress: { ar: 'جارٍ الإغلاق...', en: 'Closing...' },
+  // زر التوقيع/الإجراء التالي يعطَّل بلا استثناء حتى تكتمل كل بنود "تأكيد الإجراءات"
+  // الإلزامية - النص يشرح صراحة سبب التعطيل بدل زر باهت بلا تفسير.
+  completeActionsFirst: { ar: 'يجب استكمال تأكيد الإجراءات أولاً', en: 'Complete action confirmation first' },
+  showShareInfo: { ar: 'عرض بيانات المشاركة', en: 'Show Share Info' },
+  shareViaWhatsapp: { ar: 'مشاركة عبر واتساب', en: 'Share via WhatsApp' },
+  reviewApproveGenerate: { ar: 'مراجعة واعتماد وتوليد رقم التصريح', en: 'Review, Approve & Generate Permit No.' },
+  confirmReceiveSign: { ar: 'تأكيد الاستلام والتوقيع', en: 'Confirm Receipt & Sign' },
+  closePermitAction: { ar: 'إغلاق التصريح', en: 'Close Permit' },
+  cancelPermitAction: { ar: 'إلغاء التصريح', en: 'Cancel Permit' },
+  confirmCancellation: { ar: 'تأكيد الإلغاء', en: 'Confirm Cancellation' },
+  goBack: { ar: 'تراجع', en: 'Back' },
+  finalCloseoutAction: { ar: 'إتمام الإغلاق النهائي', en: 'Complete Final Close-out' },
+  employeeData: { ar: 'بيانات الموظف', en: 'Employee Data' },
+  approvalData: { ar: 'بيانات الاعتماد', en: 'Approval Data' },
+  cardValidity: { ar: 'صلاحية البطاقة', en: 'Card Validity' },
+  openInMaps: { ar: 'فتح في الخرائط', en: 'Open in Maps' }
 };
 
 export function t(key, lang) {

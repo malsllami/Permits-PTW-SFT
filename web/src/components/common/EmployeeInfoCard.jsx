@@ -12,7 +12,7 @@ const ROLE_META = {
 
 function MiniField({ label, value, valueNode }) {
   return (
-    <div style={{ background: 'var(--color-surface)', boxShadow: '0 1px 4px rgba(0,0,0,0.1)', borderRadius: 'var(--radius-md)', padding: '8px 12px', flex: '1 1 120px' }}>
+    <div style={{ background: 'var(--color-surface)', boxShadow: '0 1px 4px rgba(0,0,0,0.1)', borderRadius: 'var(--radius-md)', padding: '10px 12px', flex: '1 1 120px' }}>
       <div style={{ fontSize: 11, opacity: 0.7 }}>{label}</div>
       <div style={{ fontSize: 'var(--fs-field-value)', fontWeight: 'bold', marginTop: 2 }}>
         {valueNode || (value || value === 0 ? value : '—')}
@@ -68,7 +68,7 @@ export default function EmployeeInfoCard({ profile }) {
           );
         })}
       </div>
-      <div style={{ padding: 16, display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+      <div style={{ padding: 16, display: 'flex', flexWrap: 'wrap', columnGap: 8, rowGap: 6 }}>
         <MiniField label="الاسم" value={profile.fullName} />
         <MiniField label="الرقم الوظيفي" value={profile.employeeId} />
         <MiniField label="الجوال" value={profile.mobile} />

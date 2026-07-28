@@ -45,6 +45,16 @@ export default function PermitDocumentViewer({ creationId, accessMode, currentUs
   const [signature, setSignature] = useState('');
   const [checkedMap, setCheckedMap] = useState({});
   const [sourceChecklistComplete, setSourceChecklistComplete] = useState(false);
+  const [receiverChecklistComplete, setReceiverChecklistComplete] = useState(false);
+  const [receiverCloseChecklistComplete, setReceiverCloseChecklistComplete] = useState(false);
+  const [sourceCloseChecklistComplete, setSourceCloseChecklistComplete] = useState(false);
+  // لغة عرض كل بطاقة طرف مستقلة تمامًا عن غيرها (مصدر/مستلم/إغلاق مستلم/إغلاق مصدر) -
+  // يختار كل طرف لغته أثناء تعبئة قسمه فقط، دون التأثير على بقية الأقسام؛ تشمل بنود "تأكيد
+  // الإجراءات" وتسميات/أزرار بقية بطاقة نفس الطرف (بيانات الموظف والاعتماد والتوقيع).
+  const [sourceLang, setSourceLang] = useState('ar');
+  const [receiverLang, setReceiverLang] = useState('ar');
+  const [receiverCloseLang, setReceiverCloseLang] = useState('ar');
+  const [sourceCloseLang, setSourceCloseLang] = useState('ar');
   // إقرار الاطلاع على تعليمات السلامة - بوابة مستقلة لكل مرحلة (مصدر/مستلم/إغلاق مستلم/
   // إغلاق مصدر) تسبق فتح نموذج تلك المرحلة، ولا تُحفظ في الخادم (مجرد بوابة واجهة محلية
   // تُطلب مجددًا عند كل تحميل جديد للصفحة، وليست جزءًا من بيانات التصريح الفعلية).
@@ -515,10 +525,17 @@ export default function PermitDocumentViewer({ creationId, accessMode, currentUs
 
           {/* 1) بيانات العمل - تظهر في خطوتها أثناء الويزار، وكتذكير عند خطوة المراجعة، أو في
               "صفحة 1" من شاشة العرض النهائية بعد الإغلاق. */}
-          <section style={{ marginTop: 8, background: 'var(--color-bg-work)', border: 'var(--border-width) solid #A9C8F2', borderRadius: 'var(--radius-lg)', padding: 20, display: (wizardMode ? (showStep(STEP_WORK) || showStep(STEP_ISSUE)) : showView(VIEW_PAGE_WORK)) ? undefined : 'none' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <strong style={{ fontSize: 13, display: 'flex', alignItems: 'center', gap: 6 }}><Icon name="assignment" size={16} /> {t('workData', 'ar')}</strong>
+          <section style={{ marginTop: 8, background: 'var(--color-bg-work)', border: 'var(--border-width) solid #A9C8F2', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-card)', overflow: 'hidden', display: (wizardMode ? (showStep(STEP_WORK) || showStep(STEP_ISSUE)) : showView(VIEW_PAGE_WORK)) ? undefined : 'none' }}>
+            {/* هيدر صلب موحّد مع بطاقات الأطراف (المصدر/المستلم/الإغلاق) - نفس الارتفاع/الأيقونة/
+                نمط العنوان، بلون النظام الأزرق الأساسي بدل عنوان نصي عادي على خلفية القسم فقط. */}
+            <div className="party-section-title" style={{
+              background: 'var(--color-primary)', color: '#fff', minHeight: 'var(--size-card-header-height)',
+              padding: '0 20px', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: 10, boxSizing: 'border-box'
+            }}>
+              <Icon name="assignment" size={22} />
+              <div style={{ fontSize: 'var(--fs-card-title)' }}>{t('workData', 'ar')}</div>
             </div>
+            <div style={{ padding: 20 }}>
             <div style={{ marginTop: 8, fontSize: 12 }}>
               <WorkField
                 label={t('operationalProgramNumber', 'ar')}
@@ -560,6 +577,7 @@ export default function PermitDocumentViewer({ creationId, accessMode, currentUs
                   حقل واحد) حسب دليل التصميم - كل نقطة/مفتاح عنصر مستقل يُضاف ويُحذف بمفرده. */}
               <BadgeChipField label={t('isolationPoints', 'ar')} value={permit.isolationPoints} editable={sourceSectionEditable} onChange={(v) => setFormData((f) => ({ ...f, isolationPoints: v }))} full />
             </div>
+            </div>
           </section>
           {wizardMode && showStep(STEP_WORK) && (
             <WizardNav onNext={() => setCurrentStep(STEP_SOURCE)} />
@@ -579,6 +597,7 @@ export default function PermitDocumentViewer({ creationId, accessMode, currentUs
           <PartySection
             title="بيانات المصدر / Issuer Data"
             theme={sourceTheme}
+            lang={sourceLang}
             /* بنود السلامة تظهر فقط عند الإصدار الفعلي (خطوة المصدر) وعند الإغلاق - لا تُعاد
                بلا داعٍ كبطاقة تذكيرية عند خطوة "مراجعة واعتماد" (STEP_ISSUE) حيث كل ما
                يحتاجه المصدر هناك هو توليد الرقم فقط، لا مراجعة بنود سبق تأكيدها بالفعل. */
@@ -590,6 +609,9 @@ export default function PermitDocumentViewer({ creationId, accessMode, currentUs
                 readOnly={!sourceSectionEditable}
                 onToggle={(row, v) => setCheckedMap((m) => ({ ...m, [row]: v }))}
                 onCompletionChange={setSourceChecklistComplete}
+                lang={sourceLang}
+                onLangChange={setSourceLang}
+                forceOpen={!wizardMode}
               />
             )}
             employeeId={permit.source.employeeId}
@@ -604,10 +626,10 @@ export default function PermitDocumentViewer({ creationId, accessMode, currentUs
             signature={signature}
             onSignatureChange={setSignature}
             extraFields={[
-              { label: t('sourceLockNumber', 'ar'), value: permit.sourceLockNumber, onChange: (v) => setFormData((f) => ({ ...f, sourceLockNumber: v })), icon: <Icon name="lock" size={12} /> },
-              { label: t('authorityOfficialName', 'ar'), value: permit.authorityOfficialName, onChange: (v) => setFormData((f) => ({ ...f, authorityOfficialName: v })), icon: <Icon name="person" size={12} /> },
+              { label: t('sourceLockNumber', sourceLang), value: permit.sourceLockNumber, onChange: (v) => setFormData((f) => ({ ...f, sourceLockNumber: v })), icon: <Icon name="lock" size={12} /> },
+              { label: t('authorityOfficialName', sourceLang), value: permit.authorityOfficialName, onChange: (v) => setFormData((f) => ({ ...f, authorityOfficialName: v })), icon: <Icon name="person" size={12} /> },
               {
-                label: t('authorityType', 'ar'), value: permit.authorityType,
+                label: t('authorityType', sourceLang), value: permit.authorityType,
                 onChange: (v) => setFormData((f) => ({ ...f, authorityType: v })),
                 type: 'select', options: authorityTypeOptions, icon: <Icon name="domain" size={12} />
               }
@@ -615,13 +637,14 @@ export default function PermitDocumentViewer({ creationId, accessMode, currentUs
           >
             {sourceSectionEditable && (
               <button
-                disabled={busy || !signature} onClick={handleSendToReceiver}
+                disabled={busy || !signature || !sourceChecklistComplete} onClick={handleSendToReceiver}
                 style={{ marginTop: 10, color: '#fff', background: sourceChecklistComplete ? 'var(--color-secondary)' : 'var(--color-primary)' }}
               >
                 {/* الزر يبقى معطّلًا لثوانٍ فعليًا أثناء تحديد GPS الدقيق (إلزامي، بلا تخزين
                     مؤقت - قرار صريح) - نص "جارٍ..." يوضّح أن الضغطة سُجِّلت وأن العملية قيد
-                    التنفيذ فعلًا، بدل أن يبدو الزر بلا أي استجابة أثناء الانتظار. */}
-                {busy ? 'جارٍ تحديد الموقع والإرسال...' : t('shareWithReceiver', 'ar')}
+                    التنفيذ فعلًا، بدل أن يبدو الزر بلا أي استجابة أثناء الانتظار. لا يُفعَّل
+                    إطلاقًا قبل اكتمال كل بنود "تأكيد الإجراءات" الإلزامية. */}
+                {busy ? t('locatingAndSending', sourceLang) : (!sourceChecklistComplete ? t('completeActionsFirst', sourceLang) : t('shareWithReceiver', sourceLang))}
               </button>
             )}
             {/* زر دائم لإعادة عرض بيانات المشاركة (الرابط + الرمز السري) في أي وقت لاحق -
@@ -629,7 +652,7 @@ export default function PermitDocumentViewer({ creationId, accessMode, currentUs
                 عند الإرسال ثم يختفي نهائيًا إن أُغلقت الصفحة. */}
             {!sourceSectionEditable && permit.source.transferDateTime && !sentSecretCode && (isSourceEditable || accessMode === ACCESS_MODE.ADMIN_FULL) && (
               <button disabled={shareSecretLoading} onClick={handleShowShareInfo} className="no-print secondary" style={{ marginTop: 10 }}>
-                {shareSecretLoading ? 'جارٍ التحميل...' : 'عرض بيانات المشاركة'}
+                {shareSecretLoading ? t('processing', sourceLang) : t('showShareInfo', sourceLang)}
               </button>
             )}
             {sentSecretCode && (
@@ -642,7 +665,7 @@ export default function PermitDocumentViewer({ creationId, accessMode, currentUs
                   copied={linkCopied}
                 />
                 <button onClick={handleShareWhatsApp} className="no-print" style={{ marginTop: 8, background: '#25D366', color: '#fff' }}>
-                  مشاركة عبر واتساب
+                  {t('shareViaWhatsapp', sourceLang)}
                 </button>
                 {/* بعد مشاركة الرمز السري، لا يبقى المصدر عالقًا هنا - زر رئيسية يدوي فقط
                     (بلا عدّاد تلقائي) حتى يتمكّن من نسخ/مشاركة الرمز فعليًا قبل المغادرة. */}
@@ -650,7 +673,7 @@ export default function PermitDocumentViewer({ creationId, accessMode, currentUs
               </>
             )}
             {isSourceEditable && permit.status === 'بانتظار اعتماد المصدر' && (
-              <button className="primary" disabled={busy || !permit.source.transferSignature} onClick={handleApprove} style={{ marginTop: 10 }}>{busy ? 'جارٍ التنفيذ...' : 'مراجعة واعتماد وتوليد رقم التصريح'}</button>
+              <button className="primary" disabled={busy || !permit.source.transferSignature} onClick={handleApprove} style={{ marginTop: 10 }}>{busy ? t('processing', sourceLang) : t('reviewApproveGenerate', sourceLang)}</button>
             )}
             {justApprovedNumber && (
               <PostActionBanner message="تم توليد رقم التصريح بنجاح." autoRedirectSeconds={redirectSeconds} />
@@ -668,6 +691,7 @@ export default function PermitDocumentViewer({ creationId, accessMode, currentUs
             <PartySection
               title="بيانات المستلم (الاستلام) / Receiver Data"
               theme={THEMES.yellow}
+              lang={receiverLang}
               checklist={wizardMode && currentStep === STEP_ISSUE ? null : (
                 <SafetyChecklistSection
                   permitType={permit.permitType}
@@ -675,6 +699,10 @@ export default function PermitDocumentViewer({ creationId, accessMode, currentUs
                   checkedMap={checkedMap}
                   readOnly={!receiverReceiveEditable}
                   onToggle={(row, v) => setCheckedMap((m) => ({ ...m, [row]: v }))}
+                  onCompletionChange={setReceiverChecklistComplete}
+                  lang={receiverLang}
+                  onLangChange={setReceiverLang}
+                  forceOpen={!wizardMode}
                 />
               )}
               /* قبل تأكيد الاستلام فعليًا، سجلّ "المستلم" بالتصريح نفسه لا يزال فارغًا في
@@ -693,16 +721,18 @@ export default function PermitDocumentViewer({ creationId, accessMode, currentUs
               signature={signature}
               onSignatureChange={setSignature}
               extraFields={[
-                { label: t('receiverLockNumber', 'ar'), value: permit.receiverLockNumber, onChange: (v) => setFormData((f) => ({ ...f, receiverLockNumber: v })), icon: <Icon name="lock" size={12} /> },
+                { label: t('receiverLockNumber', receiverLang), value: permit.receiverLockNumber, onChange: (v) => setFormData((f) => ({ ...f, receiverLockNumber: v })), icon: <Icon name="lock" size={12} /> },
                 {
-                  label: t('receiverEntityType', 'ar'), value: permit.receiverEntityType,
+                  label: t('receiverEntityType', receiverLang), value: permit.receiverEntityType,
                   onChange: (v) => setFormData((f) => ({ ...f, receiverEntityType: v })),
                   type: 'select', options: receiverEntityOptions, icon: <Icon name="domain" size={12} />
                 }
               ]}
             >
               {receiverReceiveEditable && (
-                <button className="primary" disabled={busy || !signature} onClick={handleReceiverSubmit} style={{ marginTop: 10 }}>{busy ? 'جارٍ التنفيذ...' : 'تأكيد الاستلام والتوقيع'}</button>
+                <button className="primary" disabled={busy || !signature || !receiverChecklistComplete} onClick={handleReceiverSubmit} style={{ marginTop: 10 }}>
+                  {busy ? t('processing', receiverLang) : (!receiverChecklistComplete ? t('completeActionsFirst', receiverLang) : t('confirmReceiveSign', receiverLang))}
+                </button>
               )}
               {justReceived && (
                 <PostActionBanner message="تم تأكيد الاستلام بنجاح." autoRedirectSeconds={redirectSeconds} />
@@ -775,6 +805,7 @@ export default function PermitDocumentViewer({ creationId, accessMode, currentUs
             <PartySection
               title="إغلاق/إلغاء التصريح بواسطة المستلم / Closing or Cancelling by Receiver"
               theme={THEMES.yellow}
+              lang={receiverCloseLang}
               checklist={(
                 <SafetyChecklistSection
                   permitType={permit.permitType}
@@ -782,6 +813,10 @@ export default function PermitDocumentViewer({ creationId, accessMode, currentUs
                   checkedMap={checkedMap}
                   readOnly={!receiverCloseEditable}
                   onToggle={(row, v) => setCheckedMap((m) => ({ ...m, [row]: v }))}
+                  onCompletionChange={setReceiverCloseChecklistComplete}
+                  lang={receiverCloseLang}
+                  onLangChange={setReceiverCloseLang}
+                  forceOpen={!wizardMode}
                 />
               )}
               employeeId={permit.receiver.employeeId}
@@ -798,23 +833,25 @@ export default function PermitDocumentViewer({ creationId, accessMode, currentUs
             >
               {receiverCloseEditable && !showCancelReason && (
                 <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
-                  <button className="primary" disabled={busy || !signature} onClick={() => handleReceiverClose('CLOSE')}>{busy ? 'جارٍ الإغلاق...' : 'إغلاق التصريح'}</button>
-                  <button disabled={busy} onClick={() => setShowCancelReason(true)} style={{ background: 'var(--color-error)', color: '#fff' }}>إلغاء التصريح</button>
+                  <button className="primary" disabled={busy || !signature || !receiverCloseChecklistComplete} onClick={() => handleReceiverClose('CLOSE')}>
+                    {busy ? t('closingInProgress', receiverCloseLang) : (!receiverCloseChecklistComplete ? t('completeActionsFirst', receiverCloseLang) : t('closePermitAction', receiverCloseLang))}
+                  </button>
+                  <button disabled={busy || !receiverCloseChecklistComplete} onClick={() => setShowCancelReason(true)} style={{ background: 'var(--color-error)', color: '#fff' }}>{t('cancelPermitAction', receiverCloseLang)}</button>
                 </div>
               )}
               {receiverCloseEditable && showCancelReason && (
                 <div style={{ marginTop: 10 }}>
-                  <div style={{ fontSize: 12, fontWeight: 'bold', marginBottom: 4 }}>{t('cancellationReason', 'ar')}</div>
+                  <div style={{ fontSize: 12, fontWeight: 'bold', marginBottom: 4 }}>{t('cancellationReason', receiverCloseLang)}</div>
                   <input type="text" style={{ width: '100%' }} value={cancelReason} onChange={(e) => setCancelReason(normalizeMixedInput(e.target.value))} />
                   <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
-                    <button disabled={busy || !cancelReason || !signature} onClick={() => handleReceiverClose('CANCEL')} style={{ background: 'var(--color-error)', color: '#fff' }}>تأكيد الإلغاء</button>
-                    <button className="secondary" disabled={busy} onClick={() => setShowCancelReason(false)}>تراجع</button>
+                    <button disabled={busy || !cancelReason || !signature} onClick={() => handleReceiverClose('CANCEL')} style={{ background: 'var(--color-error)', color: '#fff' }}>{t('confirmCancellation', receiverCloseLang)}</button>
+                    <button className="secondary" disabled={busy} onClick={() => setShowCancelReason(false)}>{t('goBack', receiverCloseLang)}</button>
                   </div>
                 </div>
               )}
               {sentCloseSecretCode && (
                 <>
-                  <div style={{ fontSize: 12, fontWeight: 'bold', marginTop: 10 }}>{t('shareWithSourceForClosing', 'ar')}</div>
+                  <div style={{ fontSize: 12, fontWeight: 'bold', marginTop: 10 }}>{t('shareWithSourceForClosing', receiverCloseLang)}</div>
                   <SharePanel
                     permitLink={permit.permitLink}
                     secretCode={sentCloseSecretCode}
@@ -916,6 +953,7 @@ export default function PermitDocumentViewer({ creationId, accessMode, currentUs
             <PartySection
               title="إغلاق المصدر النهائي / Final Issuer Close-out"
               theme={sourceCloseTheme}
+              lang={sourceCloseLang}
               checklist={(
                 <SafetyChecklistSection
                   permitType={permit.permitType}
@@ -923,6 +961,10 @@ export default function PermitDocumentViewer({ creationId, accessMode, currentUs
                   checkedMap={checkedMap}
                   readOnly={!sourceCloseEditable}
                   onToggle={(row, v) => setCheckedMap((m) => ({ ...m, [row]: v }))}
+                  onCompletionChange={setSourceCloseChecklistComplete}
+                  lang={sourceCloseLang}
+                  onLangChange={setSourceCloseLang}
+                  forceOpen={!wizardMode}
                 />
               )}
               employeeId={sourceCloseEditable ? (currentUser ? currentUser.employeeId : '') : permit.closingSource.employeeId}
@@ -937,12 +979,12 @@ export default function PermitDocumentViewer({ creationId, accessMode, currentUs
               signature={signature}
               onSignatureChange={setSignature}
               extraFields={[
-                { label: t('authorityOfficialName', 'ar'), value: permit.authorityOfficialName, onChange: () => {}, icon: <Icon name="person" size={12} /> }
+                { label: t('authorityOfficialName', sourceCloseLang), value: permit.authorityOfficialName, onChange: () => {}, icon: <Icon name="person" size={12} /> }
               ]}
             >
               {sourceCloseEditable && (
-                <button className="primary" disabled={busy || !signature} onClick={handleSourceClose} style={{ marginTop: 10 }}>
-                  {busy ? 'جارٍ الإغلاق...' : 'إتمام الإغلاق النهائي'}
+                <button className="primary" disabled={busy || !signature || !sourceCloseChecklistComplete} onClick={handleSourceClose} style={{ marginTop: 10 }}>
+                  {busy ? t('closingInProgress', sourceCloseLang) : (!sourceCloseChecklistComplete ? t('completeActionsFirst', sourceCloseLang) : t('finalCloseoutAction', sourceCloseLang))}
                 </button>
               )}
               {justClosedFinal && (
