@@ -23,6 +23,7 @@ import { THEMES, WORK_FIELD_LABEL_BG, WORK_FIELD_LABEL_TEXT } from './permitThem
 import { downloadPermitPdf } from '../../utils/pdfExport.js';
 import { WorkField, WorkSelectField, BadgeChipField } from './PermitFormFields.jsx';
 import PartySection from './PartySection.jsx';
+import PostActionBanner from './PostActionBanner.jsx';
 import { WizardStepper, LifecycleTimeline, WizardNav } from './PermitStepperNav.jsx';
 import { SharePanel, SummaryTables } from './PermitSummary.jsx';
 
@@ -61,8 +62,17 @@ export default function PermitDocumentViewer({ creationId, accessMode, currentUs
   const [showHandoverForm, setShowHandoverForm] = useState(false);
   const [sentSecretCode, setSentSecretCode] = useState('');
   const [sentCloseSecretCode, setSentCloseSecretCode] = useState('');
+  // أعلام محلية (تخص هذه الجلسة/التحميل فقط، لا تُقرأ من حالة التصريح) لإظهار بانر تأكيد +
+  // عودة للرئيسية فور إنجاز إجراء رئيسي لا يستلزم مشاركة رمز سري - لا تُشغَّل عند مجرد إعادة
+  // فتح نفس الرابط لاحقًا (خطوة الإغلاق تُفتح مباشرة حينها عبر initialStepSetRef بدل ذلك).
+  const [justApprovedNumber, setJustApprovedNumber] = useState(false);
+  const [justReceived, setJustReceived] = useState(false);
+  const [justClosedFinal, setJustClosedFinal] = useState(false);
   const [linkCopied, setLinkCopied] = useState(false);
   const [companyName, setCompanyName] = useState('');
+  // مدة العد التنازلي (ثوانٍ) للعودة التلقائية للرئيسية - قيمة افتراضية 4 ثوانٍ (نفس افتراضي
+  // "POST ACTION REDIRECT SECONDS" بالإعدادات) لحين وصول القيمة الفعلية من الخادم؛ 0 يعطّلها.
+  const [redirectSeconds, setRedirectSeconds] = useState(4);
   const [shareSecretLoading, setShareSecretLoading] = useState(false);
   // لغة صفحة تعليمات السلامة النهائية عند الطباعة/PDF - المستند المطبوع ثابت (لا زر تبديل
   // حي بعد الطباعة)، لذا تُختار اللغة صراحة عبر بوابة اختيار قبل تشغيل الطباعة فعليًا.
@@ -90,6 +100,11 @@ export default function PermitDocumentViewer({ creationId, accessMode, currentUs
     getPublicSettings().then((rows) => {
       const row = rows.filter((r) => r.group === 'معلومات النظام' && r.key === 'COMPANY NAME')[0];
       if (row) setCompanyName(row.valueAr);
+      const redirectRow = rows.filter((r) => r.group === 'معلومات النظام' && r.key === 'POST ACTION REDIRECT SECONDS')[0];
+      if (redirectRow) {
+        const n = Number(redirectRow.valueAr);
+        setRedirectSeconds(isNaN(n) ? 0 : n);
+      }
     }).catch(() => {});
   }, []);
 
@@ -120,12 +135,14 @@ export default function PermitDocumentViewer({ creationId, accessMode, currentUs
     const isRecvEditableNow = accessMode === ACCESS_MODE.INTERACTIVE_RECEIVER || accessMode === ACCESS_MODE.ADMIN_FULL;
     let step = 0;
     if (permit.status === 'بانتظار اعتماد المصدر') {
-      step = 3;
-    } else if (
-      permit.status === 'نشط' || permit.status === 'بانتظار إغلاق المصدر' ||
-      permit.status === 'بانتظار تأكيد الإلغاء من المصدر'
-    ) {
-      step = 4;
+      step = 3; // STEP_ISSUE - مراجعة وتوليد الرقم
+    } else if (permit.status === 'بانتظار إغلاق المصدر' || permit.status === 'بانتظار تأكيد الإلغاء من المصدر') {
+      step = 4; // STEP_CLOSE - للمصدر إجراء إغلاق نهائي فعلي هنا
+    } else if (permit.status === 'نشط') {
+      // المستلم لديه إجراء إغلاق/إلغاء فعلي فورًا بمجرد "نشط" فيفتح مباشرة على الإغلاق؛
+      // غيره (المصدر مثلًا، قبل أن يُغلق المستلم قسمه) لا إجراء فعلي له بعد، فيبقى بخطوة
+      // المراجعة (حيث يظهر رقم التصريح بوضوح) بدل قسم إغلاق فارغ غير قابل للتعديل.
+      step = isRecvEditableNow ? 4 : 3;
     } else if (permit.source && permit.source.transferDateTime) {
       step = isRecvEditableNow ? 2 : 3;
     }
@@ -152,6 +169,11 @@ export default function PermitDocumentViewer({ creationId, accessMode, currentUs
   const isSourceCloseEditable = accessMode === ACCESS_MODE.INTERACTIVE_SOURCE_CLOSE || accessMode === ACCESS_MODE.ADMIN_FULL;
 
   const showFinalInstructions = permit && (permit.status === 'مغلق' || permit.status === 'ملغي');
+  // إتاحة تصدير PDF أوسع من "تعليمات السلامة/رحلة التصريح" على الشاشة (التي تبقى خاصة
+  // بالتصريح المغلق فعليًا فقط) - أي شخص يفتح رابط/QR التصريح بمجرد توليد رقم التصريح
+  // (قبل الإغلاق الكامل) يمكنه تنزيل نسخة PDF كاملة البنية، بأقسام الإغلاق فارغة طبيعيًا
+  // (PermitPrint.jsx يعرض "—" لكل حقل غير مكتمل بعد دون أي تعديل مطلوب فيه).
+  const canExportPdf = !!(permit && permit.permitNumber);
 
   async function withGpsAction(action) {
     setBusy(true);
@@ -235,12 +257,13 @@ export default function PermitDocumentViewer({ creationId, accessMode, currentUs
   const handleShareWhatsApp = () => {
     window.open('https://wa.me/?text=' + encodeURIComponent(buildWhatsAppMessage()), '_blank');
   };
-  const handleReceiverSubmit = () => withGpsAction((gps) => saveReceiverSection(creationId, formData, signature, gps, checkedMap));
+  const handleReceiverSubmit = () => withGpsAction((gps) => saveReceiverSection(creationId, formData, signature, gps, checkedMap)).then(() => setJustReceived(true));
   // توقيع واحد فقط للمصدر طوال دورة حياة التصريح (يُرسم عند التحويل للمستلم) - عند عودة
   // التصريح للمصدر للاعتماد لا يُطلب توقيع جديد، بل يُعاد استخدام نفس التوقيع المحفوظ.
-  // بعد الاعتماد وتوليد رقم التصريح تنتقل دورة العمل بالكامل لمرحلة "الإغلاق" - لا حاجة
-  // لبقاء المصدر عالقًا في شاشة المراجعة نفسها (التي تصبح غير قابلة للتعديل الآن على أي حال).
-  const handleApprove = () => withGpsAction((gps) => approveBySource(creationId, permit.source.transferSignature, gps)).then(() => setCurrentStep(STEP_CLOSE));
+  // بعد الاعتماد وتوليد رقم التصريح يبقى المصدر ظاهريًا على خطوة المراجعة (حيث يظهر رقم
+  // التصريح بوضوح) - بانر تأكيد + عودة تلقائية للرئيسية (PostActionBanner) بدل القفز الفوري
+  // لقسم إغلاق غير قابل للتعديل بعد (لا صلاحية INTERACTIVE_SOURCE_CLOSE قبل أن يُغلق المستلم قسمه).
+  const handleApprove = () => withGpsAction((gps) => approveBySource(creationId, permit.source.transferSignature, gps)).then(() => setJustApprovedNumber(true));
   const handleReceiverClose = async (action) => {
     const result = await withGpsAction((gps) => closeOrCancelByReceiver(creationId, action, signature, gps, action === 'CANCEL' ? cancelReason : '', checkedMap));
     if (result && result.secretCode) setSentCloseSecretCode(result.secretCode);
@@ -251,7 +274,7 @@ export default function PermitDocumentViewer({ creationId, accessMode, currentUs
       setTimeout(() => setLinkCopied(false), 2000);
     });
   };
-  const handleSourceClose = () => withGpsAction((gps) => closeBySource(creationId, signature, gps, checkedMap));
+  const handleSourceClose = () => withGpsAction((gps) => closeBySource(creationId, signature, gps, checkedMap)).then(() => setJustClosedFinal(true));
   const handleInitiateHandover = () => withGpsAction((gps) => initiateReceiverHandover(creationId, handoverNewReceiverId, handoverSignature, gps));
   const handleConfirmHandover = () => withGpsAction((gps) => confirmReceiverHandover(permit.pendingHandover.transferId, handoverSignature, gps));
 
@@ -331,6 +354,14 @@ export default function PermitDocumentViewer({ creationId, accessMode, currentUs
   // لون الهيدر العلوي الملوّن بالكامل - بلون خطوة الويزار الحالية أثناء دورة الحياة، أو
   // بلون الأزرق الأساسي بعد الإغلاق (شاشة العرض/الطباعة النهائية لا ترتبط بخطوة معيّنة).
   const headerColor = wizardMode ? STEP_DEFS[currentStep].color : 'var(--color-navbar)';
+  // عنوان الهيدر يواكب رحلة التصريح الفعلية بدل نص ثابت طوال الوقت - ثلاث حالات فقط: إنشاء
+  // (قبل توليد الرقم) ← جاري تنفيذ العمل (بعد التوليد، قبل الوصول فعليًا لخطوة الإغلاق) ←
+  // إغلاق التصريح (بمجرد الدخول لخطوة الإغلاق، سواء من المستلم أو المصدر).
+  const wizardTitle = currentStep === STEP_CLOSE
+    ? 'إغلاق التصريح'
+    : permit.permitNumber
+      ? 'جاري تنفيذ العمل'
+      : (permit.permitType === 'PTW' ? 'إنشاء تصريح عمل كهربائي' : 'إنشاء تصريح تعميد بالاختبار');
   // سهم الرجوع بالهيدر: خطوة سابقة إن أمكن، وإلا رجوع فعلي في المتصفح (للوصول من الرابط
   // المباشر/QR دون تاريخ تصفح داخل الموقع، بدل توجيه ثابت لصفحة واحدة قد لا تناسب السياق).
   const handleHeaderBack = () => {
@@ -384,7 +415,7 @@ export default function PermitDocumentViewer({ creationId, accessMode, currentUs
                 {/* شارة نوع التصريح - أزرق لـPTW وتركواز لـSFT، هوية بصرية ثابتة في كل الشاشات (قسم 11/15 بدليل التصميم) */}
                 <div style={{ fontSize: 10, fontWeight: 'bold', opacity: 0.85, letterSpacing: 0.5 }}>{permit.permitType}</div>
                 <div style={{ fontWeight: 'bold', fontSize: 15, lineHeight: 1.3 }}>
-                  {permit.permitType === 'PTW' ? 'إنشاء تصريح عمل كهربائي' : 'إنشاء تصريح تعميد بالاختبار'}
+                  {wizardTitle}
                   {permit.voltageLevel && <span style={{ fontSize: 12, fontWeight: 500, opacity: 0.9 }}> · {permit.voltageLevel}</span>}
                 </div>
               </div>
@@ -412,30 +443,20 @@ export default function PermitDocumentViewer({ creationId, accessMode, currentUs
             </div>
 
             {!showCreationPendingCard && (permit.operationalProgramNumber || permit.permitNumber) && (
-              <div style={{ display: 'flex', gap: 10, marginTop: 14 }}>
-                <div style={{ flexShrink: 0, alignSelf: 'center' }}>
-                  <QRCodeView link={permit.permitLink} size={64} />
+              <div style={{ marginTop: 14 }}>
+                {/* رقم التصريح بعرض كامل بسطره الخاص (لا يتشارك المساحة مع QR) - يتسع للرقم
+                    كاملًا بلا اقتطاع بصري حتى مع الصيغة الأطول (تاريخ+رموز مفصولة بـ|). رقم
+                    البرنامج التشغيلي لم يعد يظهر هنا (مكانه فقط داخل "بيانات المهمة" أدناه
+                    لتفادي التكرار)، فيتبقى QR ومدة العمل فقط أسفل صندوق الرقم. */}
+                <div style={{ background: 'var(--color-bg-permit-number)', color: 'var(--color-success)', border: '1.5px solid var(--color-success)', borderRadius: 8, padding: '4px 8px' }}>
+                  <div style={{ fontWeight: 'bold', opacity: 0.85, fontSize: 11 }}>{t('permitNumber', 'ar')}</div>
+                  <strong style={{ display: 'block', fontSize: 12, direction: 'ltr', whiteSpace: 'nowrap', overflowX: 'auto' }}>{permit.permitNumber || '—'}</strong>
                 </div>
-                <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 6, fontSize: 11 }}>
-                  {/* رقم التصريح يخلط أحرفًا/أرقامًا إنجليزية مع فواصل ("DATE-WD-JD-PTW-000002")
-                      ضمن سياق عربي RTL - عرضه بجانب تسميته بسطر واحد يُعرِّضه لالتفاف السطر
-                      عشوائيًا، وقد يُعيد خوارزمية اتجاه النص (Bidi) ترتيب أجزائه بصريًا بشكل
-                      مربك عند الالتفاف. عنوان بسطره الخاص، ثم القيمة بسطر مستقل ثابت الاتجاه
-                      (ltr) بلا التفاف - يضمن ظهورها كاملة وبترتيبها الصحيح دائمًا. */}
-                  <div style={{ background: 'var(--color-bg-permit-number)', color: 'var(--color-success)', border: '1.5px solid var(--color-success)', borderRadius: 8, padding: '4px 8px' }}>
-                    <div style={{ fontWeight: 'bold', opacity: 0.85 }}>{t('permitNumber', 'ar')}</div>
-                    <strong style={{ display: 'block', fontSize: 12, direction: 'ltr', whiteSpace: 'nowrap', overflowX: 'auto' }}>{permit.permitNumber || '—'}</strong>
-                  </div>
-                  <div style={{ borderTop: '1px solid var(--color-border)' }} />
-                  <div style={{ display: 'flex', justifyContent: 'space-between', gap: 6 }}>
-                    <div>
-                      <div style={{ opacity: 0.65 }}>{t('operationalProgramNumber', 'ar')}</div>
-                      <div style={{ fontWeight: 'bold' }}>{permit.operationalProgramNumber || '—'}</div>
-                    </div>
-                    <div style={{ textAlign: 'left' }}>
-                      <div style={{ opacity: 0.65 }}>{t('workDuration', 'ar')}</div>
-                      <div style={{ fontWeight: 'bold' }}>{computeWorkDurationLabel(permit.source.approvalDateTime, permit.closingSource.closeDateTime) || '—'}</div>
-                    </div>
+                <div style={{ display: 'flex', gap: 10, marginTop: 8, alignItems: 'center' }}>
+                  <QRCodeView link={permit.permitLink} size={64} />
+                  <div style={{ flex: 1, minWidth: 0, fontSize: 11 }}>
+                    <div style={{ opacity: 0.65 }}>{t('workDuration', 'ar')}</div>
+                    <div style={{ fontWeight: 'bold' }}>{computeWorkDurationLabel(permit.source.approvalDateTime, permit.closingSource.closeDateTime) || '—'}</div>
                   </div>
                 </div>
               </div>
@@ -470,33 +491,18 @@ export default function PermitDocumentViewer({ creationId, accessMode, currentUs
               الأبيض أعلاه مباشرة (بدل تكراره مرتين). */}
           {wizardMode && (permit.operationalProgramNumber || permit.permitNumber) && (
             <div style={{ background: '#fff', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-card)', padding: 10, marginBottom: 14, boxSizing: 'border-box' }}>
-              <div style={{ display: 'flex', gap: 10 }}>
-                <div style={{ flexShrink: 0, alignSelf: 'center' }}>
-                  <QRCodeView link={permit.permitLink} size={64} />
-                </div>
-                <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 6, fontSize: 11 }}>
-                  {/* رقم التصريح بارز أعلى العمود المقابل لـQR مباشرة - بطاقة خضراء فاتحة
-                      حسب دليل التصميم (وليست خلفية خضراء داكنة صلبة). */}
-                  {/* رقم التصريح يخلط أحرفًا/أرقامًا إنجليزية مع فواصل ("DATE-WD-JD-PTW-000002")
-                      ضمن سياق عربي RTL - عرضه بجانب تسميته بسطر واحد يُعرِّضه لالتفاف السطر
-                      عشوائيًا، وقد يُعيد خوارزمية اتجاه النص (Bidi) ترتيب أجزائه بصريًا بشكل
-                      مربك عند الالتفاف. عنوان بسطره الخاص، ثم القيمة بسطر مستقل ثابت الاتجاه
-                      (ltr) بلا التفاف - يضمن ظهورها كاملة وبترتيبها الصحيح دائمًا. */}
-                  <div style={{ background: 'var(--color-bg-permit-number)', color: 'var(--color-success)', border: '1.5px solid var(--color-success)', borderRadius: 8, padding: '4px 8px' }}>
-                    <div style={{ fontWeight: 'bold', opacity: 0.85 }}>{t('permitNumber', 'ar')}</div>
-                    <strong style={{ display: 'block', fontSize: 12, direction: 'ltr', whiteSpace: 'nowrap', overflowX: 'auto' }}>{permit.permitNumber || '—'}</strong>
-                  </div>
-                  <div style={{ borderTop: '1px solid var(--color-border)' }} />
-                  <div style={{ display: 'flex', justifyContent: 'space-between', gap: 6 }}>
-                    <div>
-                      <div style={{ opacity: 0.65 }}>{t('operationalProgramNumber', 'ar')}</div>
-                      <div style={{ fontWeight: 'bold' }}>{permit.operationalProgramNumber || '—'}</div>
-                    </div>
-                    <div style={{ textAlign: 'left' }}>
-                      <div style={{ opacity: 0.65 }}>{t('workDuration', 'ar')}</div>
-                      <div style={{ fontWeight: 'bold' }}>{computeWorkDurationLabel(permit.source.approvalDateTime, permit.closingSource.closeDateTime) || '—'}</div>
-                    </div>
-                  </div>
+              {/* رقم التصريح بعرض كامل بسطره الخاص - لا يتشارك المساحة مع QR (انظر الملاحظة
+                  المطابقة أعلى هيدر شاشة العرض النهائي). رقم البرنامج التشغيلي لم يعد يظهر
+                  هنا (مكانه فقط داخل "بيانات المهمة" أدناه). */}
+              <div style={{ background: 'var(--color-bg-permit-number)', color: 'var(--color-success)', border: '1.5px solid var(--color-success)', borderRadius: 8, padding: '4px 8px' }}>
+                <div style={{ fontWeight: 'bold', opacity: 0.85, fontSize: 11 }}>{t('permitNumber', 'ar')}</div>
+                <strong style={{ display: 'block', fontSize: 12, direction: 'ltr', whiteSpace: 'nowrap', overflowX: 'auto' }}>{permit.permitNumber || '—'}</strong>
+              </div>
+              <div style={{ display: 'flex', gap: 10, marginTop: 8, alignItems: 'center' }}>
+                <QRCodeView link={permit.permitLink} size={64} />
+                <div style={{ flex: 1, minWidth: 0, fontSize: 11 }}>
+                  <div style={{ opacity: 0.65 }}>{t('workDuration', 'ar')}</div>
+                  <div style={{ fontWeight: 'bold' }}>{computeWorkDurationLabel(permit.source.approvalDateTime, permit.closingSource.closeDateTime) || '—'}</div>
                 </div>
               </div>
             </div>
@@ -638,10 +644,16 @@ export default function PermitDocumentViewer({ creationId, accessMode, currentUs
                 <button onClick={handleShareWhatsApp} className="no-print" style={{ marginTop: 8, background: '#25D366', color: '#fff' }}>
                   مشاركة عبر واتساب
                 </button>
+                {/* بعد مشاركة الرمز السري، لا يبقى المصدر عالقًا هنا - زر رئيسية يدوي فقط
+                    (بلا عدّاد تلقائي) حتى يتمكّن من نسخ/مشاركة الرمز فعليًا قبل المغادرة. */}
+                <PostActionBanner message="تم تحويل التصريح للمستلم بنجاح." autoRedirectSeconds={0} />
               </>
             )}
             {isSourceEditable && permit.status === 'بانتظار اعتماد المصدر' && (
               <button className="primary" disabled={busy || !permit.source.transferSignature} onClick={handleApprove} style={{ marginTop: 10 }}>{busy ? 'جارٍ التنفيذ...' : 'مراجعة واعتماد وتوليد رقم التصريح'}</button>
+            )}
+            {justApprovedNumber && (
+              <PostActionBanner message="تم توليد رقم التصريح بنجاح." autoRedirectSeconds={redirectSeconds} />
             )}
           </PartySection>
           )}
@@ -691,6 +703,9 @@ export default function PermitDocumentViewer({ creationId, accessMode, currentUs
             >
               {receiverReceiveEditable && (
                 <button className="primary" disabled={busy || !signature} onClick={handleReceiverSubmit} style={{ marginTop: 10 }}>{busy ? 'جارٍ التنفيذ...' : 'تأكيد الاستلام والتوقيع'}</button>
+              )}
+              {justReceived && (
+                <PostActionBanner message="تم تأكيد الاستلام بنجاح." autoRedirectSeconds={redirectSeconds} />
               )}
             </PartySection>
             )
@@ -807,6 +822,9 @@ export default function PermitDocumentViewer({ creationId, accessMode, currentUs
                     onCopy={copyPermitLink}
                     copied={linkCopied}
                   />
+                  {/* رمز سري يجب مشاركته - زر رئيسية يدوي فقط بلا عدّاد تلقائي حتى تُتاح
+                      الفرصة الكاملة لمشاركته أولًا. */}
+                  <PostActionBanner message="تم إغلاق قسم المستلم بنجاح." autoRedirectSeconds={0} />
                 </>
               )}
             </PartySection>
@@ -927,6 +945,9 @@ export default function PermitDocumentViewer({ creationId, accessMode, currentUs
                   {busy ? 'جارٍ الإغلاق...' : 'إتمام الإغلاق النهائي'}
                 </button>
               )}
+              {justClosedFinal && (
+                <PostActionBanner message="تم الإغلاق النهائي للتصريح بنجاح." autoRedirectSeconds={redirectSeconds} />
+              )}
             </PartySection>
             )
           )}
@@ -951,11 +972,12 @@ export default function PermitDocumentViewer({ creationId, accessMode, currentUs
         </div>
       </div>
 
-      {/* تصدير PDF متاح فقط بعد إغلاق/إلغاء التصريح فعليًا - قبل ذلك التصريح لا يزال قيد
-          التنفيذ ولا يمثّل مستندًا نهائيًا جاهزًا للأرشفة. تنزيل مباشر لملف PDF حقيقي -
-          بدون المرور بنافذة طباعة المتصفح إطلاقًا (انظر utils/pdfExport.js). ثابت أسفل
-          الشاشة (sticky) بدل الاختفاء مع التمرير عند وصول المستخدم لنهاية الصفحة. */}
-      {showFinalInstructions && (
+      {/* تصدير PDF متاح بمجرد توليد رقم التصريح (canExportPdf) - وليس فقط بعد إغلاق/إلغاء
+          التصريح فعليًا - أي شخص يفتح الرابط/QR يمكنه تنزيل نسخة كاملة البنية (أقسام
+          الإغلاق تظهر فيها فارغة طبيعيًا لحين حدوثها). تنزيل مباشر لملف PDF حقيقي - بدون
+          المرور بنافذة طباعة المتصفح إطلاقًا (انظر utils/pdfExport.js). ثابت أسفل الشاشة
+          (sticky) بدل الاختفاء مع التمرير عند وصول المستخدم لنهاية الصفحة. */}
+      {canExportPdf && (
         <div
           className="no-print"
           style={{
@@ -1000,8 +1022,9 @@ export default function PermitDocumentViewer({ creationId, accessMode, currentUs
     </div>
 
     {/* مستند الطباعة/PDF الفعلي - مكوّن مستقل تمامًا (صفحتا A4 ثابتتان)، مخفي بالكامل على
-        الشاشة (screen:none) ولا يظهر إلا عند الطباعة الفعلية (@media print). */}
-    {showFinalInstructions && (
+        الشاشة (screen:none) ولا يظهر إلا عند الطباعة الفعلية (@media print). يُركَّب في
+        الـDOM بمجرد canExportPdf (توليد رقم التصريح) وليس فقط بعد الإغلاق الكامل. */}
+    {canExportPdf && (
       <PermitPrint permit={permit} companyName={companyName} printLang={printLang} />
     )}
     </>
