@@ -238,7 +238,7 @@ table.app-table tbody tr:nth-child(even) {
 .print-page {
   width: 210mm;
   min-height: 297mm;
-  padding: 12mm;
+  padding: 8mm;
   box-sizing: border-box;
   background: #fff;
 }
@@ -254,6 +254,10 @@ table.app-table tbody tr:nth-child(even) {
    "تداخل" وخروج عن الحدود بصريًا. يُلغى تمامًا هنا: لا حاجة لحماية عرض داخل صفحة A4 ثابتة. */
 .print-page table.app-table { font-size: 10px; min-width: 0; width: 100%; table-layout: fixed; }
 .print-page table.app-table th, .print-page table.app-table td { padding: 4px; overflow-wrap: break-word; word-break: break-word; }
+/* فاصل صفوف داخل بطاقة طرف واحد قابل للتخصيص محليًا (لون مشتقّ من لون البطاقة نفسها بدل
+   الرمادي العام) عبر متغيّر CSS يُمرَّر فقط من PersonSection في PermitPrint.jsx - القيمة
+   الافتراضية هنا (#eef0f3) تبقى كما كانت لكل الجداول الأخرى التي لا تُمرِّر هذا المتغيّر. */
+.print-page table.app-table td { border-bottom: 1px solid var(--pp-row-divider, #eef0f3); }
 
 @media print {
   /* هامش الصفحة صفر هنا عمدًا - كل صفحة طباعة (.print-page) تدير حشوتها الداخلية بنفسها
