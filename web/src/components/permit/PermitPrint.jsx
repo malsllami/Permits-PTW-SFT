@@ -14,8 +14,10 @@ import { formatDateTimeShort, formatBilingualDateLines, combineDateAndTime } fro
 const PRINT = {
   space: '5mm',
   blue: '#0F4C81',
-  blueLight: '#EDF5FD',
+  blueLight: '#EEF6FD',
+  blueDivider: '#D6E8F8',
   green: '#1D6F42',
+  permitGreen: '#14532D',
   yellow: '#F5B400',
   red: '#D9534F',
   gray: '#6B7280',
@@ -23,10 +25,11 @@ const PRINT = {
   border: '#E6E6E6',
   radius: 14,
   shadow: '0 1px 3px rgba(0,0,0,.05)',
-  sourceBg: '#FDF3F2',
-  sourceDivider: '#F4D5D3',
-  receiverBg: '#FFF9E8',
-  receiverDivider: '#F2E2AE'
+  headerHeight: 52,
+  sourceBg: '#FDF5F4',
+  sourceDivider: '#F6D9D6',
+  receiverBg: '#FFF9EB',
+  receiverDivider: '#F7E5A8'
 };
 
 /**
@@ -87,23 +90,24 @@ export default function PermitPrint({ permit, companyName, printLang }) {
             بيانات الأشخاص. يمين: رقم التصريح - يسار: QR (حسب النظام المعتمد)، بطاقة رسمية
             هادئة: حدود وظل موحّدان مع بقية بطاقات المستند، أخضر داكن ثابت، وخط سفلي خفيف جدًا
             أسفل الرقم بعرضه فقط (وليس عرض البطاقة) لتثبيته بصريًا بلمسة رسمية دون تشديد. */}
-        <section style={{ marginTop: PRINT.space, display: 'flex', alignItems: 'center', gap: 16, border: '1px solid ' + PRINT.border, boxShadow: PRINT.shadow, borderRadius: PRINT.radius, padding: 12, background: '#fff' }}>
+        <section style={{ marginTop: PRINT.space, display: 'flex', alignItems: 'center', gap: 16, border: '1px solid #DCE0E6', boxShadow: '0 2px 4px rgba(0,0,0,.06)', borderRadius: PRINT.radius, padding: 12, background: '#fff' }}>
           <div style={{ fontSize: 12, flex: 1, minWidth: 0 }}>
             {/* رقم التصريح بسطره الخاص بعرض كامل (اتجاه ثابت LTR بلا التفاف) - لا يُوضَع بجانب
                 مدة العمل بنفس الصف، لأن خلط أرقام/فواصل إنجليزية مع محتوى عربي بمساحة ضيقة قد
-                يُعيد ترتيب الأجزاء بصريًا (Bidi) بشكل مربك. */}
+                يُعيد ترتيب الأجزاء بصريًا (Bidi) بشكل مربك. مسافة أوضح بين تسمية "رقم التصريح"
+                والرقم نفسه (بدل التصاقهما) لفصل بصري أهدأ. */}
             <div style={{ opacity: 0.75, fontSize: 12, fontWeight: 600 }}>{t('permitNumber', 'ar')}</div>
             <div style={{
-              display: 'inline-block', fontWeight: 700, fontSize: 20, color: PRINT.green,
+              display: 'inline-block', fontWeight: 700, fontSize: 20, color: PRINT.permitGreen,
               direction: 'ltr', textAlign: 'right', whiteSpace: 'nowrap',
-              borderBottom: '1px solid #CFE5D7', paddingBottom: 3, marginTop: 2
+              borderBottom: '1px solid #CFE5D7', paddingBottom: 3, marginTop: 7
             }}>
               {permit.permitNumber || '—'}
             </div>
             <div style={{ opacity: 0.75, fontSize: 12, fontWeight: 600, marginTop: 8 }}>{t('workDuration', 'ar')}</div>
             <div style={{ fontSize: 14, fontWeight: 700 }}>{workDuration || '—'}</div>
           </div>
-          <div style={{ padding: 4, background: '#fff', border: '0.5px solid ' + PRINT.border, borderRadius: 6, display: 'inline-flex', flexShrink: 0 }}>
+          <div style={{ padding: 8, background: '#fff', border: '0.5px solid ' + PRINT.border, borderRadius: 6, display: 'inline-flex', flexShrink: 0 }}>
             <QRCodeView link={permit.permitLink} size={64} />
           </div>
         </section>
@@ -153,6 +157,8 @@ export default function PermitPrint({ permit, companyName, printLang }) {
             employeeId={permit.receiver.employeeId}
             fullName={hadHandover ? undefined : closingReceiverName}
             extraRows={[
+              ['رقم قفل السلامة', permit.receiverLockNumber],
+              ['نوع الجهة المستلمة', permit.receiverEntityType],
               ['الحالة', permit.status],
               permit.status === 'ملغي' ? ['سبب الإلغاء', permit.cancellationReason] : null,
               hadHandover ? ['المستلم', originalReceiverName] : null,
@@ -239,7 +245,7 @@ export default function PermitPrint({ permit, companyName, printLang }) {
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
             {journeyStages.filter((s) => s.signature).map((stage) => (
               <div key={stage.label} style={{ minHeight: 90, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', border: '1px solid ' + PRINT.border, borderRadius: PRINT.radius, padding: 8, textAlign: 'center', boxShadow: PRINT.shadow }}>
-                <img src={stage.signature} alt="توقيع" style={{ height: 30 }} />
+                <img src={stage.signature} alt="توقيع" style={{ height: 35 }} />
                 <div style={{ fontSize: 12, fontWeight: 600, marginTop: 4 }}>{stage.name || '—'}</div>
                 <div style={{ fontSize: 11, color: PRINT.gray }}>{stage.label}</div>
               </div>
@@ -358,7 +364,7 @@ function WorkDataSection({ permit }) {
     : [t('testType', 'ar'), permit.testType];
 
   return (
-    <section style={{ marginTop: PRINT.space, minHeight: '72mm', background: PRINT.blueLight, border: '1px solid ' + PRINT.border, boxShadow: PRINT.shadow, borderRadius: PRINT.radius, padding: 12, '--pp-row-bg-even': 'transparent' }}>
+    <section style={{ marginTop: PRINT.space, minHeight: '72mm', background: PRINT.blueLight, border: '1px solid ' + PRINT.border, boxShadow: PRINT.shadow, borderRadius: PRINT.radius, padding: 12, '--pp-row-divider': PRINT.blueDivider, '--pp-row-bg-even': 'transparent' }}>
       <div style={{ fontWeight: 'bold', fontSize: 28, color: PRINT.blue }}>بيانات المهمة التشغيلية</div>
       <div style={{ fontSize: 12, fontWeight: 500, color: PRINT.gray, marginBottom: 8 }}>Task Data</div>
 
@@ -402,12 +408,12 @@ function BadgeField({ label, items }) {
 }
 
 /**
- * قسم بيانات طرف (مصدر/مستلم/إغلاق): كل بيانات الطرف (الهوية ثم بيانات الاعتماد) داخل جدول
- * واحد متصل بدل قسمين منفصلين (حقول Div أعلى + جدول أسفل) - "فتصبح البطاقة قطعة واحدة" حسب
- * المواصفة المعتمدة، لا فاصل مرئي بين "بيانات الموظف" و"بيانات الاعتماد". خلفية ثابتة وفواصل
- * الجدول الداخلية بلون مشتقّ من لون البطاقة نفسها بدل الرمادي العام (عبر متغيّرَي CSS محليَّين
- * "--pp-row-divider"/"--pp-row-bg-even" يرثهما الجدول الداخلي فقط، بلا أي تأثير على جداول
- * الموقع الحي الأخرى). ارتفاع أدنى موحّد (minHeight) وليس ارتفاعًا مقصوصًا، فلا فقدان بيانات.
+ * قسم بيانات طرف (مصدر/مستلم/إغلاق): هيدر صلب اللون بارتفاع ثابت (هوية الطرف فورًا)، يليه
+ * جسم البطاقة بخلفية فاتحة من نفس عائلة اللون - كل بيانات الطرف (الهوية ثم بيانات الاعتماد)
+ * داخل جدول واحد متصل بدل قسمين منفصلين، "فتصبح البطاقة قطعة واحدة" حسب المواصفة المعتمدة.
+ * فواصل الجدول الداخلية بلون مشتقّ من لون البطاقة نفسها بدل الرمادي العام (عبر متغيّرَي CSS
+ * محليَّين "--pp-row-divider"/"--pp-row-bg-even" يرثهما الجدول الداخلي فقط، بلا أي تأثير على
+ * جداول الموقع الحي الأخرى). ارتفاع أدنى موحّد (minHeight) وليس ارتفاعًا مقصوصًا، فلا فقدان بيانات.
  */
 function PersonSection({ bg, dividerColor, minHeight, title, stripColor, stripNumber, employeeId, fullName, mobile, extraRows, dateTime, signature }) {
   // العربي عنوان رئيسي والإنجليزي أسفله بخط أصغر - أقرب للنماذج الصناعية الاحترافية.
@@ -425,25 +431,30 @@ function PersonSection({ bg, dividerColor, minHeight, title, stripColor, stripNu
   const dateLines = formatBilingualDateLines(dateTime);
 
   return (
-    <section style={{ position: 'relative', minWidth: 0, minHeight, background: bg, border: '1px solid ' + PRINT.border, boxShadow: PRINT.shadow, borderRadius: PRINT.radius, overflow: 'hidden', '--pp-row-divider': dividerColor, '--pp-row-bg-even': 'transparent' }}>
-      {/* شريط علوي رفيع صرف اللون (بلا نص - 5-6px فقط) بلون الطرف الفعلي (أحمر=مصدر دائمًا/
-          أصفر=مستلم دائمًا)، مع شارة رقم دائرية صغيرة متراكبة عند الزاوية توضّح تسلسل مراحل
-          الاعتماد حتى لمن يطبع الورقة لأول مرة - أقرب للنماذج الهندسية الرسمية من شريط نصي عريض. */}
-      {stripColor && <div style={{ height: 6, background: stripColor }} />}
-      {stripColor && stripNumber && (
-        <div style={{
-          position: 'absolute', top: 2, right: 8, width: 18, height: 18, borderRadius: '50%',
-          background: stripColor, color: '#fff', fontSize: 10, fontWeight: 'bold',
-          display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 1px 2px rgba(0,0,0,0.15)'
-        }}>
-          {stripNumber}
+    <section style={{ minWidth: 0, minHeight, background: bg, border: '1px solid ' + PRINT.border, boxShadow: PRINT.shadow, borderRadius: PRINT.radius, overflow: 'hidden', '--pp-row-divider': dividerColor, '--pp-row-bg-even': 'transparent' }}>
+      {/* هيدر صلب اللون بارتفاع ثابت (لا شريط رفيع) - يمنح البطاقة هويتها اللونية الواضحة
+          فورًا (أحمر=مصدر دائمًا/أصفر=مستلم دائمًا) ومساحة "تنفّس" كافية للعنوانين العربي
+          والإنجليزي وشارة رقم التسلسل، بدل أن تكون هذه العناصر محشورة في خط رفيع 5-6px. نفس
+          الارتفاع الثابت لكل البطاقات الأربع يضمن محاذاة العناوين على خط أفقي واحد بينها. */}
+      {stripColor && (
+        <div style={{ minHeight: PRINT.headerHeight, background: stripColor, color: '#fff', padding: '6px 12px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+          <div style={{ minWidth: 0 }}>
+            <div style={{ fontWeight: 'bold', fontSize: 16 }}>{titleAr}</div>
+            {titleEn && <div style={{ fontSize: 12, opacity: 0.85, marginTop: 2 }}>{titleEn}</div>}
+          </div>
+          {stripNumber && (
+            <div style={{
+              width: 24, height: 24, minWidth: 24, borderRadius: '50%', background: 'rgba(255,255,255,.25)',
+              color: '#fff', fontSize: 13, fontWeight: 'bold',
+              display: 'flex', alignItems: 'center', justifyContent: 'center'
+            }}>
+              {stripNumber}
+            </div>
+          )}
         </div>
       )}
       <div style={{ padding: 10 }}>
-      <div style={{ fontWeight: 'bold', fontSize: 18, color: PRINT.blue }}>{titleAr}</div>
-      {titleEn && <div style={{ fontSize: 12, fontWeight: 500, color: PRINT.gray, marginBottom: 6 }}>{titleEn}</div>}
-
-      <table className="app-table" style={{ marginTop: 4, fontSize: 13 }}>
+      <table className="app-table" style={{ marginTop: 0, fontSize: 13 }}>
         <tbody>
           {/* الاسم بصف مستقل بعرض كامل (أكثر الحقول عُرضة للطول) قبل بقية الصفوف المزدوجة. */}
           {fullName && (
