@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { getSafetyInstructions } from '../../services/settingsService.js';
+import { getSafetyInstructions, getSafetyItems } from '../../services/settingsService.js';
 import SectionLanguageToggle from './SectionLanguageToggle.jsx';
 
 /** يجلب بنود "تعليمات" السلامة (للاطلاع فقط) لهذا النوع من التصريح - يُستخدم لعرضها ولحساب عددها. */
@@ -13,19 +13,38 @@ export function useSafetyInstructions(permitType) {
   return instructions;
 }
 
+/** كل بنود السلامة (تعليمات + إجراءات معًا، لكل المراحل الأربع) بطلب شبكة واحد فقط - بدل
+    5 طلبات منفصلة (تعليمات + مصدر + مستلم + إغلاق مستلم + إغلاق مصدر). يُستخدَم في PermitPrint
+    لعرض كل من صفحة "قواعد وتعليمات السلامة" وصفحة "إجراءات التنفيذ" من نفس البيانات. */
+export function useAllSafetyItems(permitType) {
+  const [items, setItems] = useState([]);
+  useEffect(() => {
+    let active = true;
+    getSafetyItems(permitType, null).then((rows) => { if (active) setItems(rows); }).catch(() => {});
+    return () => { active = false; };
+  }, [permitType]);
+  return items;
+}
+
 /**
  * جدول موحّد بلغة واحدة لتعليمات السلامة مع زر تبديل اللغة (وليس عمودين ثنائيي اللغة
  * جنبًا إلى جنب) - يُستخدم أثناء التعبئة التفاعلية وأيضًا كأساس لصفحة التعليمات النهائية
  * بعد الإغلاق. زر التبديل نفسه داخل "no-print" فيختفي تلقائيًا عند الطباعة/PDF - اللغة
  * التي كانت مختارة لحظة الطباعة (يُختارها المستخدم صراحة قبل الطباعة) هي ما يُطبع فعليًا.
  */
-export function SafetyInstructionsTable({ instructions, lang, onLangChange, responsiveFontSize }) {
+export function SafetyInstructionsTable({ instructions, lang, onLangChange, responsiveFontSize, hideLanguageToggle }) {
   if (!instructions || instructions.length === 0) return null;
   return (
     <div>
-      <div className="no-print" style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 6 }}>
-        <SectionLanguageToggle lang={lang} onChange={onLangChange} />
-      </div>
+      {/* "no-print" وحدها لا تكفي لإخفاء الزر عن تصدير PDF - ذلك المسار يلتقط الـDOM الحي
+          مباشرة عبر html2canvas (انظر utils/pdfExport.js)، ولا يمر بنافذة طباعة المتصفح
+          إطلاقًا، فقاعدة @media print لا تُطبَّق عليه. hideLanguageToggle تُزيل الزر من
+          الـDOM كليًا في سياق PDF بدل الاعتماد فقط على تنسيق طباعة لا يعمل هناك. */}
+      {!hideLanguageToggle && (
+        <div className="no-print" style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 6 }}>
+          <SectionLanguageToggle lang={lang} onChange={onLangChange} />
+        </div>
+      )}
       <div className="table-scroll-wrap">
         <table className="app-table app-table-list">
           <thead>

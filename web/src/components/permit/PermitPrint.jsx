@@ -2,20 +2,24 @@ import React from 'react';
 import QRCodeView from '../common/QRCodeView.jsx';
 import { PERMIT_TYPE } from '../../config/constants.js';
 import { t } from '../../config/permitLabels.js';
-import { useSafetyInstructions, SafetyInstructionsTable } from './SafetyInstructionsPage.jsx';
+import { useAllSafetyItems, SafetyInstructionsTable } from './SafetyInstructionsPage.jsx';
 import { computeWorkDurationLabel, splitToBadgeItems } from '../../utils/permitFormatting.js';
 import { formatDateTimeShort, formatBilingualDateLines, combineDateAndTime } from '../../hooks/useHijriGregorianDate.js';
 
 /**
  * مستند الطباعة/PDF المستقل - مكوّن قائم بذاته منفصل تمامًا عن شاشة العرض التفاعلية،
- * لا يُعرض على الشاشة إطلاقًا (screen:none) ولا يظهر إلا عند الطباعة الفعلية. صفحتان
- * A4 فقط (كل صفحة تحمل رقم التصريح + QR مصغّر في رأسها لتجميع الأوراق إن تفرّقت):
- * 1) رحلة التصريح كاملة: بيانات المهمة (مختصرة) + المصدر + المستلم + إغلاق المستلم +
- *    الإغلاق النهائي للمصدر + QR الكامل (مرة واحدة فقط) + رقم التصريح + مدة العمل.
- * 2) سجل رحلة التصريح (Audit Trail) + ملخص التواقيع + تعليمات السلامة.
+ * لا يُعرض على الشاشة إطلاقًا (screen:none) ولا يظهر إلا عند الطباعة الفعلية. 3 صفحات A4
+ * (كل صفحة تحمل رقم التصريح + QR مصغّر في رأسها لتجميع الأوراق إن تفرّقت)، كل صفحة بغرض
+ * واحد واضح - التصريح نظام PTW إلكتروني كامل والـPDF نسخة أرشيفية رسمية عند الحاجة فقط:
+ * 1) ملخص التصريح: ماذا وَمن؟ - بيانات المهمة + رقم التصريح/QR + بطاقات الأطراف الأربع.
+ * 2) الدليل والإثبات: كيف نُفِّذ؟ - سجل رحلة التصريح + إجراءات التنفيذ الموقَّعة لكل مرحلة
+ *    (4 مجموعات: مصدر/مستلم/إغلاق مستلم/إغلاق مصدر) + ملخص التواقيع الأربعة.
+ * 3) المرجع القانوني والإجرائي: قواعد وتعليمات السلامة فقط - صفحة ثابتة بلا بيانات متغيّرة.
  */
 export default function PermitPrint({ permit, companyName, printLang }) {
-  const instructions = useSafetyInstructions(permit.permitType);
+  const allSafetyItems = useAllSafetyItems(permit.permitType);
+  const instructions = allSafetyItems.filter((i) => i.itemType === 'تعليمات');
+  const actionsByStage = (stage) => allSafetyItems.filter((i) => i.itemType === 'إجراء' && i.stage === stage);
   const permitTitle = permit.permitType === PERMIT_TYPE.PTW
     ? 'تصريح العمل / Permit To Work'
     : 'تصريح التعميد بالاختبار / Sanction For Testing';
@@ -46,24 +50,28 @@ export default function PermitPrint({ permit, companyName, printLang }) {
 
   return (
     <div className="permit-print-root">
-      <PrintPage pageNumber={1} totalPages={2} permit={permit} companyName={companyName} permitTitle={permitTitle}>
+      <PrintPage pageNumber={1} totalPages={3} permit={permit} companyName={companyName} permitTitle={permitTitle}>
         <WorkDataSection permit={permit} />
 
         {/* رقم التصريح + QR مباشرة أسفل بيانات المهمة - أهم معلومة في المستند تظهر أولًا،
-            قبل بيانات الأشخاص. بطاقة رسمية هادئة عمدًا: حدود شعرية فقط (بلا ظل يقلّل من
-            الطابع الرسمي عند الطباعة)، أخضر داكن احترافي، وخط فاصل أسفل الرقم بعرض الرقم
+            قبل بيانات الأشخاص. بطاقة رسمية هادئة عمدًا: حدود مطابقة لبقية البطاقات (وليست
+            أخف منها - كانت باهتة جدًا فتندمج بصريًا مع خلفية الصفحة الرمادية الفاتحة)، مع
+            ظل خفيف جدًا جدًا يكفي فقط لرفعها عن الخلفية (وليس المسافة بين البطاقات، تبقى
+            كما هي دون أي تغيير)، أخضر داكن احترافي أكثر، وخط فاصل أسفل الرقم بعرض الرقم
             نفسه فقط (وليس عرض البطاقة) لتثبيته بصريًا بلمسة رسمية. */}
-        <section style={{ marginTop: 8, display: 'flex', alignItems: 'center', gap: 16, border: '0.4px solid #D9DEE6', borderRadius: 'var(--radius-lg)', padding: 12, background: '#fff' }}>
-          <QRCodeView link={permit.permitLink} size={64} />
+        <section style={{ marginTop: 8, display: 'flex', alignItems: 'center', gap: 16, border: '1px solid #E2E5EA', boxShadow: '0 1px 3px rgba(0,0,0,0.04)', borderRadius: 'var(--radius-lg)', padding: 12, background: '#fff' }}>
+          <div style={{ padding: 4, background: '#fff', border: '0.5px solid #E2E5EA', borderRadius: 6, display: 'inline-flex', flexShrink: 0 }}>
+            <QRCodeView link={permit.permitLink} size={64} />
+          </div>
           <div style={{ fontSize: 11, flex: 1, minWidth: 0 }}>
             {/* رقم التصريح بسطره الخاص بعرض كامل (اتجاه ثابت LTR بلا التفاف) - لا يُوضَع
                 بجانب مدة العمل في نفس الصف كما كان، لأن خلط أرقام/فواصل إنجليزية مع محتوى
                 عربي بمساحة ضيقة قد يجعل الأجزاء تُعاد ترتيبها بصريًا (Bidi) بشكل مربك. */}
             <div style={{ opacity: 0.65, fontSize: 10 }}>{t('permitNumber', 'ar')}</div>
             <div style={{
-              display: 'inline-block', fontWeight: 700, fontSize: 15, color: '#146C2E',
+              display: 'inline-block', fontWeight: 700, fontSize: 17, color: '#0F5C2A',
               direction: 'ltr', textAlign: 'right', whiteSpace: 'nowrap',
-              borderBottom: '0.6px solid #146C2E', paddingBottom: 3, marginTop: 2
+              borderBottom: '0.6px solid #0F5C2A', paddingBottom: 3, marginTop: 2
             }}>
               {permit.permitNumber || '—'}
             </div>
@@ -78,7 +86,7 @@ export default function PermitPrint({ permit, companyName, printLang }) {
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginTop: 8 }}>
           <PersonSection
             bg="var(--color-bg-source)"
-            stripColor="var(--color-role-source-border)" stripLabel="① إنشاء التصريح"
+            stripColor="var(--color-role-source-border)" stripNumber="①"
             title="بيانات المصدر / Issuer Data"
             employeeId={permit.source.employeeId}
             fullName={permit.source.fullName}
@@ -93,7 +101,7 @@ export default function PermitPrint({ permit, companyName, printLang }) {
           />
           <PersonSection
             bg="var(--color-bg-receiver)"
-            stripColor="var(--color-role-receiver-border)" stripLabel="② استلام التصريح"
+            stripColor="var(--color-role-receiver-border)" stripNumber="②"
             title="بيانات المستلم / Receiver Data"
             employeeId={permit.receiver.employeeId}
             fullName={permit.receiver.fullName}
@@ -112,7 +120,7 @@ export default function PermitPrint({ permit, companyName, printLang }) {
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginTop: 8 }}>
           <PersonSection
             bg="var(--color-bg-receiver)"
-            stripColor="var(--color-role-receiver-border)" stripLabel="③ إغلاق المستلم"
+            stripColor="var(--color-role-receiver-border)" stripNumber="③"
             title="إغلاق/إلغاء التصريح بواسطة المستلم / Closing or Cancelling by Receiver"
             employeeId={permit.receiver.employeeId}
             fullName={hadHandover ? undefined : closingReceiverName}
@@ -127,7 +135,7 @@ export default function PermitPrint({ permit, companyName, printLang }) {
           />
           <PersonSection
             bg="var(--color-bg-source)"
-            stripColor="var(--color-role-source-border)" stripLabel="④ إغلاق المصدر"
+            stripColor="var(--color-role-source-border)" stripNumber="④"
             title="إغلاق المصدر النهائي / Final Issuer Close-out"
             employeeId={permit.closingSource.employeeId}
             fullName={permit.closingSource.fullName}
@@ -142,7 +150,10 @@ export default function PermitPrint({ permit, companyName, printLang }) {
         </div>
       </PrintPage>
 
-      <PrintPage pageNumber={2} totalPages={2} permit={permit} companyName={companyName} permitTitle={permitTitle} isLast>
+      {/* الصفحة الثانية: "الدليل والإثبات" - كيف نُفِّذ التصريح؟ سجل رحلة التصريح (متى/من)
+          ثم إجراءات التنفيذ الموقَّعة لكل مرحلة (ماذا نُفِّذ فعليًا - لم تكن تظهر في PDF
+          إطلاقًا سابقًا، فقط في الشاشة الحية) ثم ملخص التواقيع الأربعة في نهاية الصفحة. */}
+      <PrintPage pageNumber={2} totalPages={3} permit={permit} companyName={companyName} permitTitle={permitTitle}>
         <section style={{ marginTop: 8 }}>
           <div style={{ fontWeight: 'bold', fontSize: 13, color: 'var(--color-primary)' }}>سجل رحلة التصريح</div>
           <div style={{ fontSize: 10, opacity: 0.75, marginBottom: 6 }}>Audit Trail / Operations Log</div>
@@ -166,6 +177,32 @@ export default function PermitPrint({ permit, companyName, printLang }) {
           </table>
         </section>
 
+        {/* إجراءات التنفيذ الموقَّعة - 4 مجموعات مطابقة تمامًا للمراحل الأربع الفعلية في
+            SafetyChecklistSection (الشاشة الحية)، بالترتيب الزمني، بهوية لونية ثابتة
+            (أحمر=مصدر دائمًا، أصفر=مستلم دائمًا) - تحوّل المستند لإثبات كامل لما نُفِّذ. */}
+        <section style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid #E2E5EA' }}>
+          <div style={{ fontWeight: 'bold', fontSize: 13, color: 'var(--color-primary)' }}>إجراءات التنفيذ</div>
+          <div style={{ fontSize: 10, opacity: 0.75, marginBottom: 6 }}>Execution Actions Confirmation</div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+            <ActionConfirmationGroup
+              title="إجراءات المصدر (عند الإصدار)" color="var(--color-role-source-border)"
+              items={actionsByStage('المصدر')} checklistState={permit.checklistState || {}}
+            />
+            <ActionConfirmationGroup
+              title="إجراءات المستلم (عند الاستلام)" color="var(--color-role-receiver-border)"
+              items={actionsByStage('المستلم')} checklistState={permit.checklistState || {}}
+            />
+            <ActionConfirmationGroup
+              title="إجراءات إغلاق المستلم" color="var(--color-role-receiver-border)"
+              items={actionsByStage('إغلاق المستلم')} checklistState={permit.checklistState || {}}
+            />
+            <ActionConfirmationGroup
+              title="إجراءات إغلاق المصدر" color="var(--color-role-source-border)"
+              items={actionsByStage('إغلاق المصدر')} checklistState={permit.checklistState || {}}
+            />
+          </div>
+        </section>
+
         <section style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid #E2E5EA' }}>
           <div style={{ fontWeight: 'bold', fontSize: 13, color: 'var(--color-primary)' }}>ملخص التواقيع</div>
           <div style={{ fontSize: 10, opacity: 0.75, marginBottom: 6 }}>Signatures Summary</div>
@@ -179,13 +216,21 @@ export default function PermitPrint({ permit, companyName, printLang }) {
             ))}
           </div>
         </section>
+      </PrintPage>
 
-        <div style={{ marginTop: 14, paddingTop: 12, borderTop: '1px solid #E2E5EA' }}>
+      {/* الصفحة الثالثة: "المرجع القانوني والإجرائي" - قواعد وتعليمات السلامة فقط، بلا أي
+          بيانات متغيّرة (لا تواقيع، لا جداول) - صفحة ثابتة لا تتغيّر بين تصريح وآخر إلا إذا
+          عدّلت الشركة التعليمات نفسها، مع جملة توثيقية تربطها رسميًا بالتصريح. */}
+      <PrintPage pageNumber={3} totalPages={3} permit={permit} companyName={companyName} permitTitle={permitTitle} isLast>
+        <div style={{ marginTop: 8 }}>
           <div style={{ fontWeight: 'bold', fontSize: 13, color: 'var(--color-primary)', textAlign: 'center', margin: '0 0 4px' }}>
             {printLang === 'ar' ? 'قواعد وتعليمات السلامة الهامة' : 'Important Safety Instructions'}
           </div>
         </div>
-        <SafetyInstructionsTable instructions={instructions} lang={printLang} onLangChange={() => {}} />
+        <SafetyInstructionsTable instructions={instructions} lang={printLang} onLangChange={() => {}} hideLanguageToggle />
+        <div style={{ marginTop: 14, paddingTop: 10, borderTop: '1px solid #E2E5EA', fontSize: 9, opacity: 0.65, textAlign: 'center' }}>
+          تم إصدار هذا التصريح إلكترونيًا، وتشكّل هذه التعليمات جزءًا من تصريح العمل، ويُعتبر اعتماد التصريح إقرارًا بالاطلاع عليها والالتزام بها.
+        </div>
       </PrintPage>
     </div>
   );
@@ -209,7 +254,9 @@ function PrintPage({ pageNumber, totalPages, permit, companyName, permitTitle, i
           {permitTitle}
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-          <QRCodeView link={permit.permitLink} size={26} />
+          <div style={{ padding: 2, background: '#fff', border: '0.5px solid #E2E5EA', borderRadius: 4, display: 'inline-flex' }}>
+            <QRCodeView link={permit.permitLink} size={26} />
+          </div>
           <div>
             <div style={{ fontWeight: 'bold', fontSize: 9, direction: 'ltr', textAlign: 'right', whiteSpace: 'nowrap' }}>{permit.permitNumber || permit.creationId}</div>
             <div>صفحة {pageNumber} / {totalPages}</div>
@@ -218,6 +265,37 @@ function PrintPage({ pageNumber, totalPages, permit, companyName, permitTitle, i
       </div>
       {children}
     </section>
+  );
+}
+
+/**
+ * مجموعة "إجراءات التنفيذ" لمرحلة واحدة - نفس نمط التأكيد المرئي المعتمَد في
+ * SafetyChecklistSection (الشاشة الحية): مربّع مرسوم بالكود + علامة ✓ خضراء بدل
+ * input[type=checkbox] حي، لأن محركات الالتقاط/الطباعة لا تُظهر accent-color بشكل موثوق.
+ */
+function ActionConfirmationGroup({ title, color, items, checklistState }) {
+  if (!items || items.length === 0) return null;
+  return (
+    <div style={{ marginTop: 4 }}>
+      <div style={{ fontSize: 11, fontWeight: 'bold', color, marginBottom: 4 }}>{title}</div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+        {items.map((item) => {
+          const checked = !!checklistState[item.row];
+          return (
+            <div key={item.row} style={{ display: 'flex', gap: 6, alignItems: 'center', fontSize: 10, fontWeight: 'bold' }}>
+              <span style={{
+                width: 10, height: 10, minWidth: 10, borderRadius: 2, display: 'inline-flex', alignItems: 'center',
+                justifyContent: 'center', background: checked ? '#2E9E49' : '#fff',
+                border: '1.2px solid ' + (checked ? '#2E9E49' : '#999'), color: '#fff', fontSize: 7, lineHeight: 1
+              }}>
+                {checked ? '✓' : ''}
+              </span>
+              <span>{item.textAr}</span>
+            </div>
+          );
+        })}
+      </div>
+    </div>
   );
 }
 
@@ -246,7 +324,11 @@ function WorkDataSection({ permit }) {
     : [t('testType', 'ar'), permit.testType];
 
   return (
-    <section style={{ marginTop: 8, background: 'var(--color-bg-work)', border: '1px solid #E2E5EA', boxShadow: '0 1px 3px rgba(0,0,0,0.05)', borderRadius: 'var(--radius-lg)', padding: 10 }}>
+    <section style={{ marginTop: 8, background: 'var(--color-bg-work)', border: '1px solid #E2E5EA', boxShadow: '0 1px 3px rgba(0,0,0,0.05)', borderRadius: 'var(--radius-lg)', overflow: 'hidden' }}>
+      {/* شريط علوي رفيع أزرق (5-6px، بلا نص - بطاقة واحدة لا سلسلة) يوحّد الهوية البصرية
+          مع الشرائط الملوّنة فوق بطاقات المصدر/المستلم (أحمر/أصفر) في نفس الصفحة. */}
+      <div style={{ height: 6, background: 'var(--color-primary)' }} />
+      <div style={{ padding: 10 }}>
       <div style={{ fontWeight: 'bold', fontSize: 13, color: 'var(--color-primary)' }}>بيانات المهمة التشغيلية</div>
       <div style={{ fontSize: 10, opacity: 0.75, marginBottom: 6 }}>Task Data</div>
 
@@ -269,6 +351,7 @@ function WorkDataSection({ permit }) {
           <BadgeField label="مفاتيح المصدر" items={sourceSwitchBadges} />
         </div>
       )}
+      </div>
     </section>
   );
 }
@@ -303,7 +386,7 @@ function BadgeField({ label, items }) {
  * مضغوط (حقول إضافية مزدوجة + صف تاريخ/وقت + صف توقيع) بدل خمس بطاقات صغيرة منفصلة -
  * يقلّص ارتفاع كل بطاقة طرف بمقدار كبير حسب المواصفة المعتمدة.
  */
-function PersonSection({ bg, title, stripColor, stripLabel, employeeId, fullName, mobile, extraRows, dateTime, signature }) {
+function PersonSection({ bg, title, stripColor, stripNumber, employeeId, fullName, mobile, extraRows, dateTime, signature }) {
   // العربي عنوان رئيسي والإنجليزي أسفله بخط أصغر - أقرب للنماذج الصناعية الاحترافية.
   const [titleAr, titleEn] = String(title).split(' / ');
   const rows = extraRows || [];
@@ -314,13 +397,18 @@ function PersonSection({ bg, title, stripColor, stripLabel, employeeId, fullName
   const dateLines = formatBilingualDateLines(dateTime);
 
   return (
-    <section style={{ minWidth: 0, background: bg, border: '1px solid #E2E5EA', boxShadow: '0 1px 3px rgba(0,0,0,0.05)', borderRadius: 'var(--radius-lg)', overflow: 'hidden' }}>
-      {/* شريط علوي رفيع ملوّن بلون الطرف الفعلي (أحمر=مصدر دائمًا/أصفر=مستلم دائمًا) مع
-          تسمية التسلسل - يوضّح ترتيب مراحل الاعتماد حتى لمن يطبع الورقة لأول مرة، بدل
-          الاعتماد فقط على عنوان البطاقة نفسه. */}
-      {stripColor && (
-        <div style={{ background: stripColor, color: '#fff', fontSize: 9, fontWeight: 'bold', padding: '3px 10px' }}>
-          {stripLabel}
+    <section style={{ position: 'relative', minWidth: 0, background: bg, border: '1px solid #E2E5EA', boxShadow: '0 1px 3px rgba(0,0,0,0.05)', borderRadius: 'var(--radius-lg)', overflow: 'hidden' }}>
+      {/* شريط علوي رفيع صرف اللون (بلا نص - 5-6px فقط) بلون الطرف الفعلي (أحمر=مصدر دائمًا/
+          أصفر=مستلم دائمًا)، مع شارة رقم دائرية صغيرة متراكبة عند الزاوية توضّح تسلسل مراحل
+          الاعتماد حتى لمن يطبع الورقة لأول مرة - أقرب للنماذج الهندسية الرسمية من شريط نصي عريض. */}
+      {stripColor && <div style={{ height: 6, background: stripColor }} />}
+      {stripColor && stripNumber && (
+        <div style={{
+          position: 'absolute', top: 2, right: 8, width: 18, height: 18, borderRadius: '50%',
+          background: stripColor, color: '#fff', fontSize: 10, fontWeight: 'bold',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 1px 2px rgba(0,0,0,0.15)'
+        }}>
+          {stripNumber}
         </div>
       )}
       <div style={{ padding: 10 }}>
