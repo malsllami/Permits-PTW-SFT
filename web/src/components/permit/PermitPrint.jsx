@@ -264,8 +264,13 @@ export default function PermitPrint({ permit, companyName, printLang }) {
           </div>
         </div>
         <SafetyInstructionsTable instructions={instructions} lang={printLang} onLangChange={() => {}} hideLanguageToggle />
-        <div style={{ marginTop: 14, paddingTop: 10, borderTop: '1px solid ' + PRINT.divider, fontSize: 13, fontWeight: 700, color: '#374151', textAlign: 'center' }}>
-          تم إصدار هذا التصريح إلكترونيًا، وتشكّل هذه التعليمات جزءًا من تصريح العمل، ويُعتبر اعتماد التصريح إقرارًا بالاطلاع عليها والالتزام بها.
+        <div style={{ marginTop: 14, paddingTop: 10, borderTop: '1px solid ' + PRINT.divider, textAlign: 'center' }}>
+          <div style={{ fontSize: 13, fontWeight: 700, color: '#7F1D1D' }}>
+            تم إصدار هذا التصريح إلكترونيًا، وتشكّل هذه التعليمات جزءًا من تصريح العمل، ويُعتبر اعتماد التصريح إقرارًا بالاطلاع عليها والالتزام بها.
+          </div>
+          {/* خط قصير مركزي أسفل الجملة (ليس تسطيرًا كاملًا يمتد من بداية النص لنهايته) -
+              عنصر زخرفي منفصل تحت الفقرة بعرض ثابت أضيق بكثير من عرض الجملة. */}
+          <div style={{ width: 160, height: 2, background: '#7F1D1D', margin: '6px auto 0' }} />
         </div>
       </PrintPage>
     </div>
