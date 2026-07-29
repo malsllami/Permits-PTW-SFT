@@ -118,46 +118,43 @@ export default function PermitPrint({ permit, companyName, printLang }) {
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginTop: PRINT.space }}>
           <PersonSection
             bg={PRINT.sourceBg} dividerColor={PRINT.sourceDivider} minHeight={PERSON_CARD_MIN_HEIGHT}
-            stripColor={PRINT.red} stripNumber="①"
+            stripColor={PRINT.red}
             title="بيانات المصدر / Issuer Data"
             employeeId={permit.source.employeeId}
             fullName={permit.source.fullName}
             mobile={permit.source.mobile}
             extraRows={[
-              ['رقم قفل السلامة', permit.sourceLockNumber],
-              ['اسم مسؤول الجهة المعنية', permit.authorityOfficialName],
-              ['نوع الجهة المعنية', permit.authorityType]
+              ['نوع الجهة المعنية', permit.authorityType],
+              ['اسم مسؤول الجهة المعنية', permit.authorityOfficialName]
             ]}
             dateTime={permit.source.transferDateTime}
             signature={permit.source.transferSignature}
           />
           <PersonSection
             bg={PRINT.receiverBg} dividerColor={PRINT.receiverDivider} minHeight={PERSON_CARD_MIN_HEIGHT}
-            stripColor={PRINT.yellow} stripNumber="②"
+            stripColor={PRINT.yellow}
             title="بيانات المستلم / Receiver Data"
             employeeId={permit.receiver.employeeId}
             fullName={permit.receiver.fullName}
             mobile={permit.receiver.mobile}
             extraRows={[
-              ['رقم قفل السلامة', permit.receiverLockNumber],
               ['نوع الجهة المستلمة', permit.receiverEntityType]
             ]}
             dateTime={permit.receiver.receiveDateTime}
             signature={permit.receiver.receiveSignature}
           />
         </div>
-        {/* إغلاق المستلم/إغلاق المصدر النهائي جنبًا إلى جنب بنفس المبدأ - إغلاق المصدر النهائي
-            يُكرِّر عمدًا بيانات هوية المصدر (رقم قفل السلامة/الجهة) بدل الاكتفاء بالتوقيع فقط،
-            فقد لا يكون نفس مصدر بطاقة الإصدار. */}
+        {/* إغلاق المستلم/إغلاق المصدر النهائي جنبًا إلى جنب بنفس المبدأ - أرقام أقفال السلامة
+            لا تظهر في بطاقات الإغلاق (لا قفل فعلي يُذكر عند الإغلاق نفسه)، وتظهر بدلاً من ذلك
+            ضمن "إجراءات التنفيذ" في الصفحة الثانية لمرحلتَي الإصدار/الاستلام فقط. */}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginTop: PRINT.space }}>
           <PersonSection
             bg={PRINT.receiverBg} dividerColor={PRINT.receiverDivider} minHeight={PERSON_CARD_MIN_HEIGHT}
-            stripColor={PRINT.yellow} stripNumber="③"
+            stripColor={PRINT.yellow}
             title="إغلاق/إلغاء التصريح بواسطة المستلم / Closing or Cancelling by Receiver"
             employeeId={permit.receiver.employeeId}
             fullName={hadHandover ? undefined : closingReceiverName}
             extraRows={[
-              ['رقم قفل السلامة', permit.receiverLockNumber],
               ['نوع الجهة المستلمة', permit.receiverEntityType],
               ['الحالة', permit.status],
               permit.status === 'ملغي' ? ['سبب الإلغاء', permit.cancellationReason] : null,
@@ -169,13 +166,12 @@ export default function PermitPrint({ permit, companyName, printLang }) {
           />
           <PersonSection
             bg={PRINT.sourceBg} dividerColor={PRINT.sourceDivider} minHeight={PERSON_CARD_MIN_HEIGHT}
-            stripColor={PRINT.red} stripNumber="④"
+            stripColor={PRINT.red}
             title="إغلاق المصدر النهائي / Final Issuer Close-out"
             employeeId={permit.closingSource.employeeId}
             fullName={permit.closingSource.fullName}
             mobile={permit.closingSource.mobile}
             extraRows={[
-              ['رقم قفل السلامة', permit.sourceLockNumber],
               ['الجهة', permit.authorityOfficialName]
             ]}
             dateTime={permit.closingSource.closeDateTime}
@@ -213,17 +209,21 @@ export default function PermitPrint({ permit, companyName, printLang }) {
 
         {/* إجراءات التنفيذ الموقَّعة - بطاقة واحدة تضمّ 4 مجموعات مطابقة تمامًا للمراحل الأربع
             الفعلية في SafetyChecklistSection (الشاشة الحية)، بالترتيب الزمني، بهوية لونية
-            ثابتة (أحمر=مصدر دائمًا، أصفر=مستلم دائمًا) - تحوّل المستند لإثبات كامل لما نُفِّذ. */}
+            ثابتة (أحمر=مصدر دائمًا، أصفر=مستلم دائمًا) - تحوّل المستند لإثبات كامل لما نُفِّذ.
+            رقم قفل السلامة انتقل إلى هنا (مجموعتَي الإصدار/الاستلام فقط - لا قفل يُذكر عند
+            الإغلاق) بدل بطاقات الأطراف في الصفحة الأولى. خط فاصل رمادي رفيع منتصف الشبكة يفصل
+            بصريًا بين عمود المصدر وعمود المستلم. */}
         <section style={{ marginTop: PRINT.space, background: '#fff', border: '1px solid ' + PRINT.border, boxShadow: PRINT.shadow, borderRadius: PRINT.radius, padding: 12 }}>
           <div style={{ fontWeight: 'bold', fontSize: 18, color: PRINT.blue }}>إجراءات التنفيذ</div>
           <div style={{ fontSize: 12, fontWeight: 500, color: PRINT.gray, marginBottom: 6 }}>Execution Actions Confirmation</div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+          <div style={{ position: 'relative', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+            <div style={{ position: 'absolute', top: 0, bottom: 0, insetInlineStart: '50%', width: 1, background: PRINT.divider }} />
             <ActionConfirmationGroup
-              title="إجراءات المصدر (عند الإصدار)" color={PRINT.red}
+              title="إجراءات المصدر (عند الإصدار)" color={PRINT.red} lockNumber={permit.sourceLockNumber}
               items={actionsByStage('المصدر')} checklistState={permit.checklistState || {}}
             />
             <ActionConfirmationGroup
-              title="إجراءات المستلم (عند الاستلام)" color={PRINT.yellow}
+              title="إجراءات المستلم (عند الاستلام)" color={PRINT.yellow} lockNumber={permit.receiverLockNumber}
               items={actionsByStage('المستلم')} checklistState={permit.checklistState || {}}
             />
             <ActionConfirmationGroup
@@ -265,7 +265,7 @@ export default function PermitPrint({ permit, companyName, printLang }) {
           </div>
         </div>
         <SafetyInstructionsTable instructions={instructions} lang={printLang} onLangChange={() => {}} hideLanguageToggle />
-        <div style={{ marginTop: 14, paddingTop: 10, borderTop: '1px solid ' + PRINT.divider, fontSize: 9, opacity: 0.65, textAlign: 'center' }}>
+        <div style={{ marginTop: 14, paddingTop: 10, borderTop: '1px solid ' + PRINT.divider, fontSize: 11, fontWeight: 600, color: PRINT.gray, textAlign: 'center' }}>
           تم إصدار هذا التصريح إلكترونيًا، وتشكّل هذه التعليمات جزءًا من تصريح العمل، ويُعتبر اعتماد التصريح إقرارًا بالاطلاع عليها والالتزام بها.
         </div>
       </PrintPage>
@@ -311,11 +311,16 @@ function PrintPage({ pageNumber, totalPages, permit, companyName, permitTitle, i
  * SafetyChecklistSection (الشاشة الحية): مربّع مرسوم بالكود + علامة ✓ خضراء بدل
  * input[type=checkbox] حي، لأن محركات الالتقاط/الطباعة لا تُظهر accent-color بشكل موثوق.
  */
-function ActionConfirmationGroup({ title, color, items, checklistState }) {
+function ActionConfirmationGroup({ title, color, items, checklistState, lockNumber }) {
   if (!items || items.length === 0) return null;
   return (
     <div style={{ marginTop: 4 }}>
       <div style={{ fontSize: 12, fontWeight: 600, color, marginBottom: 4 }}>{title}</div>
+      {lockNumber && (
+        <div style={{ fontSize: 11, fontWeight: 'bold', marginBottom: 4 }}>
+          <span style={{ opacity: 0.65, fontWeight: 600 }}>رقم قفل السلامة: </span>{lockNumber}
+        </div>
+      )}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
         {items.map((item) => {
           const checked = !!checklistState[item.row];
@@ -408,73 +413,50 @@ function BadgeField({ label, items }) {
 }
 
 /**
- * قسم بيانات طرف (مصدر/مستلم/إغلاق): هيدر صلب اللون بارتفاع ثابت (هوية الطرف فورًا)، يليه
- * جسم البطاقة بخلفية فاتحة من نفس عائلة اللون - كل بيانات الطرف (الهوية ثم بيانات الاعتماد)
- * داخل جدول واحد متصل بدل قسمين منفصلين، "فتصبح البطاقة قطعة واحدة" حسب المواصفة المعتمدة.
- * فواصل الجدول الداخلية بلون مشتقّ من لون البطاقة نفسها بدل الرمادي العام (عبر متغيّرَي CSS
- * محليَّين "--pp-row-divider"/"--pp-row-bg-even" يرثهما الجدول الداخلي فقط، بلا أي تأثير على
- * جداول الموقع الحي الأخرى). ارتفاع أدنى موحّد (minHeight) وليس ارتفاعًا مقصوصًا، فلا فقدان بيانات.
+ * قسم بيانات طرف (مصدر/مستلم/إغلاق): هيدر صلب اللون بارتفاع ثابت (هوية الطرف فورًا، بلا رقم
+ * تسلسل - أُزيل حسب الطلب)، يليه جسم البطاقة بخلفية فاتحة من نفس عائلة اللون - كل بيانات
+ * الطرف (الهوية ثم البيانات الإضافية) داخل جدول واحد متصل، صف واحد لكل بيان/قيمة (بلا دمج
+ * صفّين في صف واحد) حسب التوزيع المعتمد. فواصل الجدول الداخلية بلون مشتقّ من لون البطاقة
+ * نفسها بدل الرمادي العام (عبر متغيّرَي CSS محليَّين "--pp-row-divider"/"--pp-row-bg-even"
+ * يرثهما الجدول الداخلي فقط، بلا أي تأثير على جداول الموقع الحي الأخرى). ارتفاع أدنى موحّد
+ * (minHeight) وليس ارتفاعًا مقصوصًا، فلا فقدان بيانات.
  */
-function PersonSection({ bg, dividerColor, minHeight, title, stripColor, stripNumber, employeeId, fullName, mobile, extraRows, dateTime, signature }) {
+function PersonSection({ bg, dividerColor, minHeight, title, stripColor, employeeId, fullName, mobile, extraRows, dateTime, signature }) {
   // العربي عنوان رئيسي والإنجليزي أسفله بخط أصغر - أقرب للنماذج الصناعية الاحترافية.
   const [titleAr, titleEn] = String(title).split(' / ');
-  // الرقم الوظيفي/الجوال يُعاملان كأول زوج صفوف في نفس جدول "بيانات الاعتماد" (وليس حقولاً
-  // منفصلة أعلى الجدول) - هذا ما يوحّد شكل البطاقة بالكامل ضمن جدول واحد متصل.
-  const identityRows = [];
-  if (employeeId) identityRows.push([t('employeeId', 'ar'), employeeId]);
-  if (mobile) identityRows.push([t('mobile', 'ar'), mobile]);
-  const rows = [...identityRows, ...(extraRows || [])];
-  const pairedRows = [];
-  for (let i = 0; i < rows.length; i += 2) {
-    pairedRows.push([rows[i], rows[i + 1] || null]);
-  }
+  // صف واحد لكل بيان (الاسم/الرقم الوظيفي/الجوال ثم الحقول الإضافية الخاصة بكل بطاقة) -
+  // بدل دمج بيانَين في صف واحد، حسب التوزيع المعتمد.
+  const rows = [];
+  if (fullName) rows.push([t('fullName', 'ar'), fullName]);
+  if (employeeId) rows.push([t('employeeId', 'ar'), employeeId]);
+  if (mobile) rows.push([t('mobile', 'ar'), mobile]);
+  (extraRows || []).forEach((row) => rows.push(row));
   const dateLines = formatBilingualDateLines(dateTime);
 
   return (
     <section style={{ minWidth: 0, minHeight, background: bg, border: '1px solid ' + PRINT.border, boxShadow: PRINT.shadow, borderRadius: PRINT.radius, overflow: 'hidden', '--pp-row-divider': dividerColor, '--pp-row-bg-even': 'transparent' }}>
-      {/* هيدر صلب اللون بارتفاع ثابت (لا شريط رفيع) - يمنح البطاقة هويتها اللونية الواضحة
-          فورًا (أحمر=مصدر دائمًا/أصفر=مستلم دائمًا) ومساحة "تنفّس" كافية للعنوانين العربي
-          والإنجليزي وشارة رقم التسلسل، بدل أن تكون هذه العناصر محشورة في خط رفيع 5-6px. نفس
+      {/* هيدر صلب اللون بارتفاع ثابت - يمنح البطاقة هويتها اللونية الواضحة فورًا (أحمر=مصدر
+          دائمًا/أصفر=مستلم دائمًا) ومساحة "تنفّس" كافية للعنوانين العربي والإنجليزي. نفس
           الارتفاع الثابت لكل البطاقات الأربع يضمن محاذاة العناوين على خط أفقي واحد بينها. */}
       {stripColor && (
-        <div style={{ minHeight: PRINT.headerHeight, background: stripColor, color: '#fff', padding: '6px 12px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
-          <div style={{ minWidth: 0 }}>
-            <div style={{ fontWeight: 'bold', fontSize: 16 }}>{titleAr}</div>
-            {titleEn && <div style={{ fontSize: 12, opacity: 0.85, marginTop: 2 }}>{titleEn}</div>}
-          </div>
-          {stripNumber && (
-            <div style={{
-              width: 24, height: 24, minWidth: 24, borderRadius: '50%', background: 'rgba(255,255,255,.25)',
-              color: '#fff', fontSize: 13, fontWeight: 'bold',
-              display: 'flex', alignItems: 'center', justifyContent: 'center'
-            }}>
-              {stripNumber}
-            </div>
-          )}
+        <div style={{ minHeight: PRINT.headerHeight, background: stripColor, color: '#fff', padding: '6px 12px', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+          <div style={{ fontWeight: 'bold', fontSize: 16 }}>{titleAr}</div>
+          {titleEn && <div style={{ fontSize: 12, opacity: 0.85, marginTop: 2 }}>{titleEn}</div>}
         </div>
       )}
       <div style={{ padding: 10 }}>
       <table className="app-table" style={{ marginTop: 0, fontSize: 13 }}>
         <tbody>
-          {/* الاسم بصف مستقل بعرض كامل (أكثر الحقول عُرضة للطول) قبل بقية الصفوف المزدوجة. */}
-          {fullName && (
-            <tr>
-              <td style={{ fontSize: 12, fontWeight: 600, opacity: 0.75, width: '17%' }}>{t('fullName', 'ar')}</td>
-              <td style={{ fontSize: 14, fontWeight: 700 }} colSpan={3}>{fullName}</td>
-            </tr>
-          )}
-          {pairedRows.map(([first, second], idx) => (
+          {rows.map(([label, value], idx) => (
             <tr key={idx}>
-              <td style={{ fontSize: 12, fontWeight: 600, opacity: 0.75, width: '17%' }}>{first[0]}</td>
-              <td style={{ fontSize: 14, fontWeight: 700, width: second ? '33%' : '83%' }} colSpan={second ? 1 : 3}>{first[1] || '—'}</td>
-              {second && <td style={{ fontSize: 12, fontWeight: 600, opacity: 0.75, width: '17%' }}>{second[0]}</td>}
-              {second && <td style={{ fontSize: 14, fontWeight: 700, width: '33%' }}>{second[1] || '—'}</td>}
+              <td style={{ fontSize: 12, fontWeight: 600, opacity: 0.75, width: '35%' }}>{label}</td>
+              <td style={{ fontSize: 14, fontWeight: 700 }}>{value || '—'}</td>
             </tr>
           ))}
           {dateLines && (
             <tr>
               <td style={{ fontSize: 12, fontWeight: 600, opacity: 0.75 }}>{t('dateTime', 'ar')}</td>
-              <td style={{ fontSize: 14, fontWeight: 700 }} colSpan={3}>
+              <td style={{ fontSize: 14, fontWeight: 700 }}>
                 {dateLines.gregorian}
                 <span style={{ opacity: 0.7, fontWeight: 500 }}> - {dateLines.hijri}</span>
               </td>
@@ -482,7 +464,7 @@ function PersonSection({ bg, dividerColor, minHeight, title, stripColor, stripNu
           )}
           <tr>
             <td style={{ fontSize: 12, fontWeight: 600, opacity: 0.75 }}>{t('signature', 'ar')}</td>
-            <td colSpan={3}>
+            <td>
               {signature ? <img src={signature} alt="توقيع" style={{ height: 30 }} /> : '—'}
             </td>
           </tr>
