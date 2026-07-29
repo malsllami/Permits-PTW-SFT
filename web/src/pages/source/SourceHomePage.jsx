@@ -5,6 +5,7 @@ import { getMyProfile, getMyClosingStats } from '../../services/employeesService
 import AppLayout from '../../components/common/AppLayout.jsx';
 import EmployeeInfoCard from '../../components/common/EmployeeInfoCard.jsx';
 import CreatePermitCard from '../../components/source/CreatePermitCard.jsx';
+import StatsCard from '../../components/common/StatsCard.jsx';
 import { useSession } from '../../hooks/useSession.js';
 import { hasRole } from '../../utils/roles.js';
 
@@ -104,20 +105,20 @@ export default function SourceHomePage() {
           </div>
         </section>
 
-        {/* ④ بطاقة عدادات مختصرة جدًا - معلومة فقط (وليست عملاً)، لذا تبقى صغيرة وفي أسفل
-            الصفحة بلا أي رسم بياني أو تفاصيل إضافية. */}
-        <section className="app-card" style={{ padding: 12 }}>
-          <div style={{ fontSize: 11, fontWeight: 'bold', opacity: 0.6, marginBottom: 8 }}>📊 إحصائياتي</div>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 16, fontSize: 12, fontWeight: 'bold' }}>
-            {isSource && <span>PTW أنشأتها: {ptwCreatedCount}</span>}
-            {isSource && <span>SFT أنشأتها: {sftCreatedCount}</span>}
-            {isReceiver && <span>PTW استلمتها: {ptwReceivedCount}</span>}
-            {isReceiver && <span>SFT استلمتها: {sftReceivedCount}</span>}
-            {closingStats && <span>مغلقة: {closingStats.totalClosed}</span>}
-            {closingStats && <span>مؤرشفة: {closingStats.archivedCount}</span>}
-            {closingStats && <span>سلة المحذوفات: {closingStats.trashCount}</span>}
-          </div>
-        </section>
+        {/* ④ بطاقة عدادات - معلومة فقط (وليست عملاً)، لذا صغيرة وفي أسفل الصفحة، مطويّة
+            افتراضيًا (سطر واحد: PTW/SFT الإجمالي) ولا تتوسّع إلا بضغطة لعرض التفصيل الكامل. */}
+        <StatsCard
+          totalPtw={ptwCreatedCount + ptwReceivedCount}
+          totalSft={sftCreatedCount + sftReceivedCount}
+        >
+          {isSource && <span>PTW أنشأتها: {ptwCreatedCount}</span>}
+          {isSource && <span>SFT أنشأتها: {sftCreatedCount}</span>}
+          {isReceiver && <span>PTW استلمتها: {ptwReceivedCount}</span>}
+          {isReceiver && <span>SFT استلمتها: {sftReceivedCount}</span>}
+          {closingStats && <span>مغلقة: {closingStats.totalClosed}</span>}
+          {closingStats && <span>مؤرشفة: {closingStats.archivedCount}</span>}
+          {closingStats && <span>سلة المحذوفات: {closingStats.trashCount}</span>}
+        </StatsCard>
       </div>
     </AppLayout>
   );

@@ -8,4 +8,5 @@ export const disableEmployee = (employeeId) => callApi('disableEmployee', { empl
 export const deleteEmployee = (employeeId) => callApi('deleteEmployee', { employeeId });
 
 export const getMyProfile = () => callApi('getMyProfile', {});
+export const updateMyMobile = (mobile) => callApi('updateMyMobile', { mobile });
 export const getMyClosingStats = () => callApi('getMyClosingStats', {});
