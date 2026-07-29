@@ -255,9 +255,15 @@ table.app-table tbody tr:nth-child(even) {
 .print-page table.app-table { font-size: 10px; min-width: 0; width: 100%; table-layout: fixed; }
 .print-page table.app-table th, .print-page table.app-table td { padding: 4px; overflow-wrap: break-word; word-break: break-word; }
 /* فاصل صفوف داخل بطاقة طرف واحد قابل للتخصيص محليًا (لون مشتقّ من لون البطاقة نفسها بدل
-   الرمادي العام) عبر متغيّر CSS يُمرَّر فقط من PersonSection في PermitPrint.jsx - القيمة
-   الافتراضية هنا (#eef0f3) تبقى كما كانت لكل الجداول الأخرى التي لا تُمرِّر هذا المتغيّر. */
+   الرمادي العام) عبر متغيّر CSS يُمرَّر فقط من PersonSection/WorkDataSection في
+   PermitPrint.jsx - القيمة الافتراضية هنا (#eef0f3) تبقى كما كانت لكل الجداول الأخرى التي
+   لا تُمرِّر هذا المتغيّر (سجل رحلة التصريح، جدول تعليمات السلامة). */
 .print-page table.app-table td { border-bottom: 1px solid var(--pp-row-divider, #eef0f3); }
+/* التلوين المتناوب للصفوف (Zebra) مصمَّم لجداول البيانات الطويلة المستقلة (سجل الرحلة/
+   تعليمات السلامة) على خلفية بيضاء - داخل بطاقة طرف/بطاقة بيانات المهمة الملوّنة بالكامل
+   كان هذا التلوين الرمادي الثابت يكسر تجانس لون البطاقة نفسها ("قطعة واحدة")، فيُلغى هناك
+   عبر نفس آلية متغيّر CSS المحلي (--pp-row-bg-even: transparent). */
+.print-page table.app-table tbody tr:nth-child(even) { background: var(--pp-row-bg-even, #F8FAFC); }
 
 @media print {
   /* هامش الصفحة صفر هنا عمدًا - كل صفحة طباعة (.print-page) تدير حشوتها الداخلية بنفسها

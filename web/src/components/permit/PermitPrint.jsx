@@ -358,7 +358,7 @@ function WorkDataSection({ permit }) {
     : [t('testType', 'ar'), permit.testType];
 
   return (
-    <section style={{ marginTop: PRINT.space, minHeight: '72mm', background: PRINT.blueLight, border: '1px solid ' + PRINT.border, boxShadow: PRINT.shadow, borderRadius: PRINT.radius, padding: 12 }}>
+    <section style={{ marginTop: PRINT.space, minHeight: '72mm', background: PRINT.blueLight, border: '1px solid ' + PRINT.border, boxShadow: PRINT.shadow, borderRadius: PRINT.radius, padding: 12, '--pp-row-bg-even': 'transparent' }}>
       <div style={{ fontWeight: 'bold', fontSize: 28, color: PRINT.blue }}>بيانات المهمة التشغيلية</div>
       <div style={{ fontSize: 12, fontWeight: 500, color: PRINT.gray, marginBottom: 8 }}>Task Data</div>
 
@@ -385,15 +385,6 @@ function WorkDataSection({ permit }) {
   );
 }
 
-function Field({ label, value, full }) {
-  return (
-    <div style={{ gridColumn: full ? '1 / -1' : undefined }}>
-      <div style={{ fontSize: 12, fontWeight: 600, opacity: 0.75 }}>{label}</div>
-      <div style={{ fontSize: 14, fontWeight: 700 }}>{value || '—'}</div>
-    </div>
-  );
-}
-
 function BadgeField({ label, items }) {
   if (!items || items.length === 0) return null;
   return (
@@ -411,16 +402,22 @@ function BadgeField({ label, items }) {
 }
 
 /**
- * قسم بيانات طرف (مصدر/مستلم/إغلاق): بيانات الموظف، ثم "بيانات الاعتماد" كجدول مدمج مضغوط
- * (حقول إضافية مزدوجة + صف تاريخ/وقت + صف توقيع). خلفية ثابتة وفواصل الجدول الداخلية بلون
- * مشتقّ من لون البطاقة نفسها بدل الرمادي العام (يمرَّر عبر متغيّر CSS محلي "--pp-row-divider"
- * فيرثه الجدول الداخلي فقط، بلا أي تأثير على جداول الموقع الحي الأخرى) - يجعل البطاقة قطعة
- * بصرية متماسكة. ارتفاع أدنى موحّد (minHeight) وليس ارتفاعًا مقصوصًا، فلا فقدان بيانات أبدًا.
+ * قسم بيانات طرف (مصدر/مستلم/إغلاق): كل بيانات الطرف (الهوية ثم بيانات الاعتماد) داخل جدول
+ * واحد متصل بدل قسمين منفصلين (حقول Div أعلى + جدول أسفل) - "فتصبح البطاقة قطعة واحدة" حسب
+ * المواصفة المعتمدة، لا فاصل مرئي بين "بيانات الموظف" و"بيانات الاعتماد". خلفية ثابتة وفواصل
+ * الجدول الداخلية بلون مشتقّ من لون البطاقة نفسها بدل الرمادي العام (عبر متغيّرَي CSS محليَّين
+ * "--pp-row-divider"/"--pp-row-bg-even" يرثهما الجدول الداخلي فقط، بلا أي تأثير على جداول
+ * الموقع الحي الأخرى). ارتفاع أدنى موحّد (minHeight) وليس ارتفاعًا مقصوصًا، فلا فقدان بيانات.
  */
 function PersonSection({ bg, dividerColor, minHeight, title, stripColor, stripNumber, employeeId, fullName, mobile, extraRows, dateTime, signature }) {
   // العربي عنوان رئيسي والإنجليزي أسفله بخط أصغر - أقرب للنماذج الصناعية الاحترافية.
   const [titleAr, titleEn] = String(title).split(' / ');
-  const rows = extraRows || [];
+  // الرقم الوظيفي/الجوال يُعاملان كأول زوج صفوف في نفس جدول "بيانات الاعتماد" (وليس حقولاً
+  // منفصلة أعلى الجدول) - هذا ما يوحّد شكل البطاقة بالكامل ضمن جدول واحد متصل.
+  const identityRows = [];
+  if (employeeId) identityRows.push([t('employeeId', 'ar'), employeeId]);
+  if (mobile) identityRows.push([t('mobile', 'ar'), mobile]);
+  const rows = [...identityRows, ...(extraRows || [])];
   const pairedRows = [];
   for (let i = 0; i < rows.length; i += 2) {
     pairedRows.push([rows[i], rows[i + 1] || null]);
@@ -428,7 +425,7 @@ function PersonSection({ bg, dividerColor, minHeight, title, stripColor, stripNu
   const dateLines = formatBilingualDateLines(dateTime);
 
   return (
-    <section style={{ position: 'relative', minWidth: 0, minHeight, background: bg, border: '1px solid ' + PRINT.border, boxShadow: PRINT.shadow, borderRadius: PRINT.radius, overflow: 'hidden', '--pp-row-divider': dividerColor }}>
+    <section style={{ position: 'relative', minWidth: 0, minHeight, background: bg, border: '1px solid ' + PRINT.border, boxShadow: PRINT.shadow, borderRadius: PRINT.radius, overflow: 'hidden', '--pp-row-divider': dividerColor, '--pp-row-bg-even': 'transparent' }}>
       {/* شريط علوي رفيع صرف اللون (بلا نص - 5-6px فقط) بلون الطرف الفعلي (أحمر=مصدر دائمًا/
           أصفر=مستلم دائمًا)، مع شارة رقم دائرية صغيرة متراكبة عند الزاوية توضّح تسلسل مراحل
           الاعتماد حتى لمن يطبع الورقة لأول مرة - أقرب للنماذج الهندسية الرسمية من شريط نصي عريض. */}
@@ -445,25 +442,16 @@ function PersonSection({ bg, dividerColor, minHeight, title, stripColor, stripNu
       <div style={{ padding: 10 }}>
       <div style={{ fontWeight: 'bold', fontSize: 18, color: PRINT.blue }}>{titleAr}</div>
       {titleEn && <div style={{ fontSize: 12, fontWeight: 500, color: PRINT.gray, marginBottom: 6 }}>{titleEn}</div>}
-      {/* الاسم بسطره الخاص بعرض كامل (أكثر الحقول عُرضة للطول)، ثم الرقم الوظيفي والجوال
-          يتشاركان سطرًا ثانيًا - بدل ثلاثة أعمدة متجاورة قد تُضيّق كل حقل بشدة الآن بعد أن
-          أصبحت بطاقة الطرف نفسها بنصف عرض الصفحة فقط (انظر الشبكة في PermitPrint أعلاه). */}
-      {fullName && (
-        <div style={{ marginBottom: 6 }}>
-          <Field label={t('fullName', 'ar')} value={fullName} />
-        </div>
-      )}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
-        {employeeId && <Field label={t('employeeId', 'ar')} value={employeeId} />}
-        {mobile && <Field label={t('mobile', 'ar')} value={mobile} />}
-      </div>
 
-      {/* بيانات الاعتماد - جدول واحد مضغوط: صفوف الحقول الإضافية مزدوجة، ثم صف التاريخ/الوقت
-          (ميلادي وهجري معًا)، ثم صف التوقيع بعرض كامل - بدل خمس بطاقات صغيرة متفرقة. خط فاصل
-          رفيع أعلاها يفصلها بصريًا عن بيانات الموظف أعلاه ضمن نفس بطاقة الطرف. */}
-      <div style={{ fontSize: 12, fontWeight: 600, opacity: 0.7, marginTop: 8, paddingTop: 8, borderTop: '1px solid ' + PRINT.divider }}>بيانات الاعتماد</div>
-      <table className="app-table" style={{ marginTop: 2, fontSize: 13 }}>
+      <table className="app-table" style={{ marginTop: 4, fontSize: 13 }}>
         <tbody>
+          {/* الاسم بصف مستقل بعرض كامل (أكثر الحقول عُرضة للطول) قبل بقية الصفوف المزدوجة. */}
+          {fullName && (
+            <tr>
+              <td style={{ fontSize: 12, fontWeight: 600, opacity: 0.75, width: '17%' }}>{t('fullName', 'ar')}</td>
+              <td style={{ fontSize: 14, fontWeight: 700 }} colSpan={3}>{fullName}</td>
+            </tr>
+          )}
           {pairedRows.map(([first, second], idx) => (
             <tr key={idx}>
               <td style={{ fontSize: 12, fontWeight: 600, opacity: 0.75, width: '17%' }}>{first[0]}</td>
