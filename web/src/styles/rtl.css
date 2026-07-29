@@ -264,6 +264,10 @@ table.app-table tbody tr:nth-child(even) {
    كان هذا التلوين الرمادي الثابت يكسر تجانس لون البطاقة نفسها ("قطعة واحدة")، فيُلغى هناك
    عبر نفس آلية متغيّر CSS المحلي (--pp-row-bg-even: transparent). */
 .print-page table.app-table tbody tr:nth-child(even) { background: var(--pp-row-bg-even, #F8FAFC); }
+/* جدول قواعد وتعليمات السلامة (صفحة 3) نص طويل للقراءة الفعلية - الحشو العام 4px كان يجعل
+   بداية كل سطر ملاصقة لحافة الخلية مباشرة (يظهر محشورًا خصوصًا في تكبير الجوال)، فيُمنح هذا
+   الجدول تحديدًا حشوًا أوسع بلا التأثير على جداول البيانات المدمجة الأخرى. */
+.print-page table.app-table.app-table-list td { padding: 8px 12px; }
 
 @media print {
   /* هامش الصفحة صفر هنا عمدًا - كل صفحة طباعة (.print-page) تدير حشوتها الداخلية بنفسها

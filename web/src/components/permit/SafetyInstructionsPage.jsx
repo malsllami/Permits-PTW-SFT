@@ -15,15 +15,25 @@ export function useSafetyInstructions(permitType) {
 
 /** كل بنود السلامة (تعليمات + إجراءات معًا، لكل المراحل الأربع) بطلب شبكة واحد فقط - بدل
     5 طلبات منفصلة (تعليمات + مصدر + مستلم + إغلاق مستلم + إغلاق مصدر). يُستخدَم في PermitPrint
-    لعرض كل من صفحة "قواعد وتعليمات السلامة" وصفحة "إجراءات التنفيذ" من نفس البيانات. */
+    لعرض كل من صفحة "قواعد وتعليمات السلامة" وصفحة "إجراءات التنفيذ" من نفس البيانات.
+    يُعيد أيضًا "loaded" - إشارة اكتمال الجلب (سواء نجح أو فشل) يعتمد عليها تصدير PDF
+    (pdfExport.js) لتأجيل التقاط الصفحات حتى تصل البيانات فعليًا؛ بدونها كانت شبكة أبطأ
+    (كالجوال) قد تجعل التصدير يلتقط صفحة "إجراءات التنفيذ" فارغة قبل وصول البيانات، بينما
+    صفحة التعليمات التالية لها (تُلتقط لاحقًا في نفس حلقة التصدير) تظهر ممتلئة فعلًا - نفس
+    البيانات لكن بتوقيت التقاط مختلف. */
 export function useAllSafetyItems(permitType) {
   const [items, setItems] = useState([]);
+  const [loaded, setLoaded] = useState(false);
   useEffect(() => {
     let active = true;
-    getSafetyItems(permitType, null).then((rows) => { if (active) setItems(rows); }).catch(() => {});
+    setLoaded(false);
+    getSafetyItems(permitType, null)
+      .then((rows) => { if (active) setItems(rows); })
+      .catch(() => {})
+      .finally(() => { if (active) setLoaded(true); });
     return () => { active = false; };
   }, [permitType]);
-  return items;
+  return { items, loaded };
 }
 
 /**

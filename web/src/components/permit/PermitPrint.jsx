@@ -43,7 +43,7 @@ const PRINT = {
  * 3) المرجع القانوني والإجرائي: قواعد وتعليمات السلامة فقط - صفحة ثابتة بلا بيانات متغيّرة.
  */
 export default function PermitPrint({ permit, companyName, printLang }) {
-  const allSafetyItems = useAllSafetyItems(permit.permitType);
+  const { items: allSafetyItems, loaded: safetyItemsLoaded } = useAllSafetyItems(permit.permitType);
   const instructions = allSafetyItems.filter((i) => i.itemType === 'تعليمات');
   const actionsByStage = (stage) => allSafetyItems.filter((i) => i.itemType === 'إجراء' && i.stage === stage);
   const permitTitle = permit.permitType === PERMIT_TYPE.PTW
@@ -82,7 +82,7 @@ export default function PermitPrint({ permit, companyName, printLang }) {
   const PERSON_CARD_MIN_HEIGHT = 235;
 
   return (
-    <div className="permit-print-root">
+    <div className="permit-print-root" data-pdf-ready={safetyItemsLoaded ? 'true' : 'false'}>
       <PrintPage pageNumber={1} totalPages={3} permit={permit} companyName={companyName} permitTitle={permitTitle}>
         <WorkDataSection permit={permit} />
 

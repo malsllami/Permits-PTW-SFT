@@ -28,6 +28,16 @@ export async function downloadPermitPdf(fileName) {
   // مهلة قصيرة لضمان إعادة رسم المتصفح فعليًا للتخطيط الجديد (display:block) قبل الالتقاط.
   await new Promise((resolve) => setTimeout(resolve, 60));
 
+  // انتظار وصول بيانات بنود السلامة فعليًا (data-pdf-ready من PermitPrint.jsx) قبل بدء
+  // التقاط أي صفحة - على شبكة بطيئة (الجوال تحديدًا) كان طلب الشبكة أحيانًا لا يصل قبل
+  // التقاط صفحة "إجراءات التنفيذ"، فتُصدَّر فارغة بينما صفحة التعليمات التالية لها (تُلتقط
+  // لاحقًا في نفس الحلقة، بعد وصول البيانات) تظهر ممتلئة فعلًا - نفس البيانات بتوقيت مختلف.
+  // مهلة قصوى دفاعية (4 ثوانٍ) لضمان عدم تعليق التصدير للأبد لو تعطّل الطلب نفسه.
+  const readyDeadline = Date.now() + 4000;
+  while (root.getAttribute('data-pdf-ready') !== 'true' && Date.now() < readyDeadline) {
+    await new Promise((resolve) => setTimeout(resolve, 100));
+  }
+
   try {
     const pages = Array.from(root.querySelectorAll('.print-page'));
     if (pages.length === 0) throw new Error('لا توجد صفحات لتصديرها.');
