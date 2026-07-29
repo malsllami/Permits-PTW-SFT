@@ -265,7 +265,7 @@ export default function PermitPrint({ permit, companyName, printLang }) {
           </div>
         </div>
         <SafetyInstructionsTable instructions={instructions} lang={printLang} onLangChange={() => {}} hideLanguageToggle />
-        <div style={{ marginTop: 14, paddingTop: 10, borderTop: '1px solid ' + PRINT.divider, fontSize: 11, fontWeight: 600, color: PRINT.gray, textAlign: 'center' }}>
+        <div style={{ marginTop: 14, paddingTop: 10, borderTop: '1px solid ' + PRINT.divider, fontSize: 13, fontWeight: 700, color: '#374151', textAlign: 'center' }}>
           تم إصدار هذا التصريح إلكترونيًا، وتشكّل هذه التعليمات جزءًا من تصريح العمل، ويُعتبر اعتماد التصريح إقرارًا بالاطلاع عليها والالتزام بها.
         </div>
       </PrintPage>
