@@ -124,7 +124,6 @@ export default function PermitPrint({ permit, companyName, printLang }) {
             fullName={permit.source.fullName}
             mobile={permit.source.mobile}
             extraRows={[
-              ['نوع الجهة المعنية', permit.authorityType],
               ['اسم مسؤول الجهة المعنية', permit.authorityOfficialName]
             ]}
             dateTime={permit.source.transferDateTime}
@@ -317,8 +316,11 @@ function ActionConfirmationGroup({ title, color, items, checklistState, lockNumb
     <div style={{ marginTop: 4 }}>
       <div style={{ fontSize: 12, fontWeight: 600, color, marginBottom: 4 }}>{title}</div>
       {lockNumber && (
-        <div style={{ fontSize: 11, fontWeight: 'bold', marginBottom: 4 }}>
-          <span style={{ opacity: 0.65, fontWeight: 600 }}>رقم قفل السلامة: </span>{lockNumber}
+        <div style={{ fontSize: 12, fontWeight: 'bold', marginBottom: 6, display: 'flex', alignItems: 'baseline', gap: 4 }}>
+          <span style={{ color, fontWeight: 700 }}>🔐 رقم قفل السلامة:</span>
+          <span style={{ display: 'inline-block', color: PRINT.red, fontWeight: 700, borderBottom: '1px solid ' + PRINT.red, paddingBottom: 1 }}>
+            {lockNumber}
+          </span>
         </div>
       )}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
