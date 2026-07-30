@@ -159,8 +159,6 @@ export default function SourceHomePage() {
           {isReceiver && <span>PTW استلمتها: {ptwReceivedCount}</span>}
           {isReceiver && <span>SFT استلمتها: {sftReceivedCount}</span>}
           {closingStats && <span>مغلقة: {closingStats.totalClosed}</span>}
-          {closingStats && <span>مؤرشفة: {closingStats.archivedCount}</span>}
-          {closingStats && <span>سلة المحذوفات: {closingStats.trashCount}</span>}
         </StatsCard>
       </div>
     </AppLayout>
