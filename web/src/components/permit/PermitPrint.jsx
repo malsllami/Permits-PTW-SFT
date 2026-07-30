@@ -4,7 +4,7 @@ import { PERMIT_TYPE } from '../../config/constants.js';
 import { t } from '../../config/permitLabels.js';
 import { useAllSafetyItems, SafetyInstructionsTable } from './SafetyInstructionsPage.jsx';
 import { computeWorkDurationLabel, splitToBadgeItems } from '../../utils/permitFormatting.js';
-import { formatDateTimeShort, formatBilingualDateLines, combineDateAndTime } from '../../hooks/useHijriGregorianDate.js';
+import { formatDateTimeShort, formatBilingualDateLines, formatDateTimeTwoLines, combineDateAndTime } from '../../hooks/useHijriGregorianDate.js';
 
 /**
  * نظام تصميم ثابت لمستند PDF فقط (لا يمسّ متغيّرات الموقع الحي العامة التي قد يُعدّلها
@@ -398,7 +398,7 @@ function WorkDataSection({ permit, lang = 'ar' }) {
 
       {(isolationBadges.length > 0 || sourceSwitchBadges.length > 0) && (
         <div style={{ marginTop: 8, paddingTop: 8, borderTop: '1px solid ' + PRINT.divider }}>
-          <BadgeField label={t('isolationPoints', lang)} items={isolationBadges} />
+          <BadgeField label={t('isolationPoints', lang)} items={isolationBadges} fixedWidth />
           <BadgeField label="مفاتيح المصدر" items={sourceSwitchBadges} />
         </div>
       )}
@@ -406,14 +406,24 @@ function WorkDataSection({ permit, lang = 'ar' }) {
   );
 }
 
-function BadgeField({ label, items }) {
+/**
+ * fixedWidth: خاص بنقاط العزل فقط (وليس مفاتيح المصدر) - عرض أدنى ثابت يكفي لرقم حتى 7
+ * خانات (1,000,000) مع توسيط الرقم داخله، فلا يتغيّر حجم الحد حسب طول الرقم المكتوب.
+ */
+function BadgeField({ label, items, fixedWidth }) {
   if (!items || items.length === 0) return null;
   return (
     <div style={{ marginTop: 6, fontSize: 13 }}>
       <div style={{ fontSize: 12, fontWeight: 600, opacity: 0.75, marginBottom: 3 }}>{label}</div>
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
         {items.map((item, i) => (
-          <span key={i} style={{ border: '1px solid ' + PRINT.blue, color: PRINT.blue, borderRadius: 999, padding: '2px 8px', fontWeight: 'bold' }}>
+          <span
+            key={i}
+            style={{
+              border: '1px solid ' + PRINT.blue, color: PRINT.blue, borderRadius: 999, padding: '2px 8px', fontWeight: 'bold',
+              ...(fixedWidth ? { display: 'inline-flex', justifyContent: 'center', minWidth: '7ch', textAlign: 'center' } : {})
+            }}
+          >
             {item}
           </span>
         ))}
@@ -443,6 +453,10 @@ function PersonSection({ bg, dividerColor, minHeight, title, stripColor, employe
   if (mobile) rows.push([t('mobile', lang), mobile]);
   (extraRows || []).forEach((row) => rows.push(row));
   const dateLines = formatBilingualDateLines(dateTime);
+  // formatBilingualDateLines تُعيد التاريخ فقط (ميلادي/هجري) بلا وقت - نُضيف الوقت من
+  // formatDateTimeTwoLines (نفس القيمة، حساب منفصل) بخط غامق واضح في نفس الصف، بدل غياب
+  // الوقت كليًا كما كان.
+  const timeLines = formatDateTimeTwoLines(dateTime);
 
   return (
     <section style={{ minWidth: 0, minHeight, background: bg, border: '1px solid ' + PRINT.border, boxShadow: PRINT.shadow, borderRadius: PRINT.radius, overflow: 'hidden', '--pp-row-divider': dividerColor, '--pp-row-bg-even': 'transparent' }}>
@@ -470,6 +484,7 @@ function PersonSection({ bg, dividerColor, minHeight, title, stripColor, employe
               <td style={{ fontSize: 14, fontWeight: 700 }}>
                 {dateLines.gregorian}
                 <span style={{ opacity: 0.7, fontWeight: 500 }}> - {dateLines.hijri}</span>
+                {timeLines && <span style={{ color: '#111', fontWeight: 800 }}> - {timeLines.time}</span>}
               </td>
             </tr>
           )}

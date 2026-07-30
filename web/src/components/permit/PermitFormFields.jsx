@@ -81,7 +81,8 @@ export function BadgeChipField({ label, value, editable, onChange, full }) {
           <span
             key={i}
             style={{
-              display: 'inline-flex', alignItems: 'center', gap: 4, border: '1px solid var(--color-primary)',
+              display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 4,
+              border: '1px solid var(--color-primary)', minWidth: '7ch', textAlign: 'center',
               color: 'var(--color-primary)', background: '#fff', borderRadius: 999, padding: '3px 10px',
               fontSize: 12, fontWeight: 'bold'
             }}
