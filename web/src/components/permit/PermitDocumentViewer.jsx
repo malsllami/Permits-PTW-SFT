@@ -19,7 +19,7 @@ import SafetyAcknowledgmentGate from './SafetyAcknowledgmentGate.jsx';
 import PermitPrint from './PermitPrint.jsx';
 import { computeWorkDurationLabel } from '../../utils/permitFormatting.js';
 import { formatDateTimeShort } from '../../hooks/useHijriGregorianDate.js';
-import { THEMES, WORK_FIELD_LABEL_BG, WORK_FIELD_LABEL_TEXT } from './permitTheme.js';
+import { THEMES } from './permitTheme.js';
 import { downloadPermitPdf } from '../../utils/pdfExport.js';
 import { WorkField, WorkSelectField, BadgeChipField } from './PermitFormFields.jsx';
 import PartySection from './PartySection.jsx';
@@ -565,11 +565,11 @@ export default function PermitDocumentViewer({ creationId, accessMode, currentUs
               </div>
             </div>
           )}
-          {/* مراحل حياة التصريح - شريط زمني بالأيقونات والتواريخ، يظهر في كل الأحوال */}
-          {/* بعد الإغلاق تصبح "رحلة حياة التصريح" جزءًا من صفحة العرض الثالثة تحديدًا (رحلة
-              التصريح) بدل ظهورها دومًا فوق كل الصفحات؛ أثناء الويزار التفاعلي تبقى ظاهرة
-              دائمًا كما كانت (showView تُعيد true تلقائيًا عندما wizardMode). */}
-          {showView(VIEW_PAGE_JOURNEY) && <LifecycleTimeline permit={permit} />}
+          {/* مراحل حياة التصريح - شريط زمني بالأيقونات والتواريخ، أثناء التعبئة التفاعلية فقط. */}
+          {/* في شاشة العرض النهائية بعد الإغلاق (!wizardMode) هذا الشريط كان يكرّر حرفيًا نفس
+              التواريخ التي يعرضها "ملخص التصريح النهائي" (SummaryTables) أسفله في نفس صفحة
+              "رحلة التصريح" - فأُخفي هناك تمامًا، ويبقى الملخص النهائي وحده مصدر هذه البيانات. */}
+          {wizardMode && showView(VIEW_PAGE_JOURNEY) && <LifecycleTimeline permit={permit} />}
 
           {/* 1) بيانات العمل - تظهر في خطوتها أثناء الويزار، وكتذكير عند خطوة المراجعة، أو في
               "صفحة 1" من شاشة العرض النهائية بعد الإغلاق. */}
@@ -838,25 +838,37 @@ export default function PermitDocumentViewer({ creationId, accessMode, currentUs
 
           {/* رأس "صفحة الإغلاق" في شاشة العرض النهائية المُقسَّمة (صفحة 2 من 4) - تذكير
               سريع ببيانات المهمة قبل عرض تفاصيل الإغلاق نفسها. فاصل شاشة فقط، لا علاقة له
-              بالطباعة/PDF الفعلية (مكوّن مستقل بذاته PermitPrint بصفحاته الأربع الثابتة). */}
+              بالطباعة/PDF الفعلية (مكوّن مستقل بذاته PermitPrint بصفحاته الأربع الثابتة).
+              نفس هوية بطاقة "بيانات العمل" الرئيسية بالضبط (هيدر صلب بلون النظام الأساسي +
+              أيقونة + نص أبيض) بدل الألوان الرمادية السابقة - توحيدًا للتنسيق بين الصفحات. */}
           {(showReceiverCloseSection && !wizardMode && showView(VIEW_PAGE_CLOSE)) && (
             <div style={{ marginTop: 24, paddingTop: 14, borderTop: '3px dashed #bbb' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10, color: '#888', marginBottom: 8 }}>
                 <span>{permit.permitNumber || permit.creationId}</span>
                 <span>الصفحة 2 من 4</span>
               </div>
-              <div style={{ background: WORK_FIELD_LABEL_BG, borderRadius: 10, padding: 10 }}>
-                <div style={{ fontWeight: 'bold', fontSize: 12, color: WORK_FIELD_LABEL_TEXT }}>بيانات العمل (تذكير)</div>
-                <div style={{ fontSize: 10, opacity: 0.75, marginBottom: 6 }}>Work Data (Recap)</div>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 6, fontSize: 11, fontWeight: 'bold' }}>
-                  <div>{t('location', 'ar')}: {permit.location || '—'}</div>
-                  <div>{t('circuit', 'ar')}: {permit.circuit || '—'}</div>
-                  <div>{t('unit', 'ar')}: {permit.unit || '—'}</div>
-                  <div>{t('station', 'ar')}: {permit.station || '—'}</div>
-                  <div>{t('feeder', 'ar')}: {permit.feeder || '—'}</div>
-                  <div>{t('permitNumber', 'ar')}: {permit.permitNumber || '—'}</div>
+              <div style={{ background: 'var(--color-bg-work)', border: 'var(--border-width) solid #A9C8F2', borderRadius: 'var(--radius-lg)', boxShadow: 'var(--shadow-card)', overflow: 'hidden' }}>
+                <div className="party-section-title" style={{
+                  background: 'var(--color-primary)', color: '#fff', minHeight: 'var(--size-card-header-height)',
+                  padding: '0 20px', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: 10, boxSizing: 'border-box'
+                }}>
+                  <Icon name="assignment" size={22} />
+                  <div>
+                    <div style={{ fontSize: 'var(--fs-card-title)' }}>بيانات العمل (تذكير)</div>
+                    <div style={{ fontSize: 13, fontWeight: 500, opacity: 0.85 }}>Work Data (Recap)</div>
+                  </div>
                 </div>
-                <div style={{ fontSize: 11, fontWeight: 'bold', marginTop: 6 }}>{t('workDescription', 'ar')}: {permit.workDescription || '—'}</div>
+                <div style={{ padding: 14 }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 6, fontSize: 11, fontWeight: 'bold' }}>
+                    <div>{t('location', 'ar')}: {permit.location || '—'}</div>
+                    <div>{t('circuit', 'ar')}: {permit.circuit || '—'}</div>
+                    <div>{t('unit', 'ar')}: {permit.unit || '—'}</div>
+                    <div>{t('station', 'ar')}: {permit.station || '—'}</div>
+                    <div>{t('feeder', 'ar')}: {permit.feeder || '—'}</div>
+                    <div>{t('permitNumber', 'ar')}: {permit.permitNumber || '—'}</div>
+                  </div>
+                  <div style={{ fontSize: 11, fontWeight: 'bold', marginTop: 6 }}>{t('workDescription', 'ar')}: {permit.workDescription || '—'}</div>
+                </div>
               </div>
             </div>
           )}
@@ -1088,11 +1100,26 @@ export default function PermitDocumentViewer({ creationId, accessMode, currentUs
         </div>
       </div>
 
+      {/* صفحة تعليمات السلامة النهائية (على الشاشة فقط الآن) - "صفحة 4" في شاشة العرض
+          النهائية المُقسَّمة. نسخة الطباعة/PDF منها تعيش داخل PermitPrint (الصفحة 4) حصرًا،
+          وليست هذه النسخة الشاشية. تُعرَض قبل الشريط السفلي الثابت (وليس بعده كما كانت سابقًا)
+          - كانت هذه الصفحة تحديدًا الاستثناء الوحيد الذي يجعل الشريط يظهر أعلى المحتوى بدل
+          أسفله فعليًا (لأنه كان يسبقها في ترتيب DOM)، فيكسر توحيد مكان الأزرار بين الصفحات. */}
+      {showFinalInstructions && showView(VIEW_PAGE_SAFETY) && (
+        <>
+          <SafetyInstructionsPage permitType={permit.permitType} lang={printLang} onLangChange={setPrintLang} />
+          <div className="no-print" style={{ maxWidth: 700, margin: '0 auto' }}>
+            <WizardNav onBack={() => setViewPage(VIEW_PAGE_JOURNEY)} />
+          </div>
+        </>
+      )}
+
       {/* تصدير PDF متاح بمجرد توليد رقم التصريح (canExportPdf) - وليس فقط بعد إغلاق/إلغاء
           التصريح فعليًا - أي شخص يفتح الرابط/QR يمكنه تنزيل نسخة كاملة البنية (أقسام
           الإغلاق تظهر فيها فارغة طبيعيًا لحين حدوثها). تنزيل مباشر لملف PDF حقيقي - بدون
           المرور بنافذة طباعة المتصفح إطلاقًا (انظر utils/pdfExport.js). ثابت أسفل الشاشة
-          (sticky) بدل الاختفاء مع التمرير عند وصول المستخدم لنهاية الصفحة. */}
+          (sticky) بدل الاختفاء مع التمرير - آخر عنصر في شجرة الصفحة دومًا (بعد كل الصفحات
+          الأربع بما فيها صفحة تعليمات السلامة) كي يبقى مكانه ثابتًا فعليًا أسفل أي صفحة. */}
       {canExportPdf && (
         <div
           className="no-print"
@@ -1111,18 +1138,6 @@ export default function PermitDocumentViewer({ creationId, accessMode, currentUs
             {employee ? 'إغلاق والعودة للرئيسية' : 'إغلاق'}
           </button>
         </div>
-      )}
-
-      {/* صفحة تعليمات السلامة النهائية (على الشاشة فقط الآن) - "صفحة 4" في شاشة العرض
-          النهائية المُقسَّمة. نسخة الطباعة/PDF منها تعيش داخل PermitPrint (الصفحة 4) حصرًا،
-          وليست هذه النسخة الشاشية. */}
-      {showFinalInstructions && showView(VIEW_PAGE_SAFETY) && (
-        <>
-          <SafetyInstructionsPage permitType={permit.permitType} lang={printLang} onLangChange={setPrintLang} />
-          <div className="no-print" style={{ maxWidth: 700, margin: '0 auto' }}>
-            <WizardNav onBack={() => setViewPage(VIEW_PAGE_JOURNEY)} />
-          </div>
-        </>
       )}
     </div>
 
