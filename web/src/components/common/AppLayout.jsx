@@ -16,7 +16,7 @@ export default function AppLayout({ title, children }) {
       {/* رأس الموقع (الشعار/التنقل/تسجيل الخروج) لا ينتمي لمستند الطباعة/PDF إطلاقًا - كان
           يُطبع سابقًا فوق كل صفحة لأنه لم يكن مُستثنى بـ no-print، بعكس مطلب التصميم الصريح
           بمنع ظهور أي عنصر من واجهة الموقع (Header/Sidebar/Buttons) داخل المستند المطبوع. */}
-      <header className="no-print" style={{ position: 'relative', overflow: 'hidden', color: '#fff', padding: '12px 20px', display: 'flex', flexWrap: 'wrap', rowGap: 10, justifyContent: 'space-between', alignItems: 'center' }}>
+      <header className="no-print" style={{ position: 'relative', overflow: 'hidden', color: '#fff', padding: '12px 20px' }}>
         {/* خلفية الهيدر بلوني شعار "السعودية للطاقة" (أزرق/تركوازي) - مزيج متدرّج واحد متصل
             بلا أي خط فاصل بين اللونين: أزرق خالص عند الطرف الأيمن يمتد كخط رفيع نحو الوسط
             حيث يبدأ التركوازي بالتشكّل تدريجيًا حتى يسيطر عند الطرف الأيسر (والعكس تمامًا
@@ -37,22 +37,31 @@ export default function AppLayout({ title, children }) {
           </defs>
           <rect x="0" y="0" width="1440" height="100" fill="url(#hdrBlend)" />
         </svg>
-        <div style={{ position: 'relative', zIndex: 1, display: 'flex', flexWrap: 'wrap', rowGap: 8, gap: 16, alignItems: 'center' }}>
-          <img src="/Permits-PTW-SFT/logo.png" alt="الشعار" style={{ height: 32 }} />
-          <strong>{title}</strong>
+        {/* صفّان واضحان بدل تدفّق حر واحد - كان يُكدِّس كل العناصر عند الحافة اليمنى فور ضيق
+            الشاشة (الجوال) لأن عنصرَي flex الرئيسيَين يلتفّان لسطرين منفصلين بدل توزيع كل
+            سطر بين طرفَي الهيدر، فيتضخّم ارتفاع الهيدر بلا داعٍ. الصف الأول: الشعار والعنوان
+            (يمين) مقابل رابط لوحة المدير (يسار، للمدير فقط). الصف الثاني: اسم الموظف (يمين)
+            مقابل زر الخروج (يسار) - كل صف يوزَّع بين طرفيه دائمًا مهما ضاق العرض. */}
+        <div style={{ position: 'relative', zIndex: 1, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <img src="/Permits-PTW-SFT/logo.png" alt="الشعار" style={{ height: 32 }} />
+            <strong>{title}</strong>
+          </div>
           {/* لا قوائم إطلاقًا للموظف العادي (مصدر/مستلم) - شاشة "الرئيسية" الموحّدة هي الصفحة
               الوحيدة له (بطاقة بياناته + بطاقات الإنشاء + بطاقات تصاريحه)، فلا حاجة لأي رابط
               تنقّل آخر. المدير وحده يحتفظ برابط "لوحة المدير" للوصول لأدوات الإدارة المنفصلة. */}
           {employee && employee.isAdmin && (
-            <nav style={{ display: 'flex', flexWrap: 'wrap', gap: 10, fontSize: 13 }}>
+            <nav style={{ display: 'flex', gap: 10, fontSize: 13 }}>
               <Link to="/admin" className="header-link" style={{ whiteSpace: 'nowrap' }}>لوحة المدير</Link>
             </nav>
           )}
         </div>
-        <div style={{ position: 'relative', zIndex: 1, display: 'flex', flexWrap: 'wrap', gap: 10, alignItems: 'center', fontSize: 13 }}>
-          {employee && <span style={{ whiteSpace: 'nowrap' }}>{employee.fullName}</span>}
-          {employee && <button onClick={handleLogout} className="header-btn" style={{ whiteSpace: 'nowrap' }}>خروج</button>}
-        </div>
+        {employee && (
+          <div style={{ position: 'relative', zIndex: 1, display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 10, fontSize: 13 }}>
+            <span style={{ whiteSpace: 'nowrap' }}>{employee.fullName}</span>
+            <button onClick={handleLogout} className="header-btn" style={{ whiteSpace: 'nowrap' }}>خروج</button>
+          </div>
+        )}
       </header>
       <main style={{ padding: 16 }}>{children}</main>
     </div>

@@ -195,13 +195,17 @@ export default function EmployeeInfoCard({ profile }) {
     r === 'مصدر' ? !!current.issuerCardExpiry : !!current.receiverCardExpiry
   );
   const displayRoles = presentRoles.length ? presentRoles : ['مصدر'];
-  // "to left" (وليس درجة زاوية ثابتة مثل 90deg) لأن تدرّجات CSS لا تنعكس تلقائيًا مع
-  // dir:rtl - "90deg" يرسم اللون الأول دومًا عند الحافة اليسرى فعليًا بصرف النظر عن اتجاه
-  // الصفحة، بينما تسميات الأدوار (flex) تنعكس فعليًا مع RTL فيصبح "مصدر" على اليمين دائمًا
-  // (أول عنصر في displayRoles) - "to left" يضمن رسم لون "مصدر" (أول لون بالمصفوفة) فعليًا
-  // عند الحافة اليمنى نفسها التي تُعرَض فيها تسميته، بدل تعارضهما.
+  // "to left" (وليس درجة زاوية ثابتة مثل 90deg) لأن تدرّجات CSS لا تنعكس تلقائيًا مع dir:rtl
+  // - تسميات الأدوار (flex) تنعكس فعليًا مع RTL فيصبح "مصدر" على اليمين دائمًا (أول عنصر في
+  // displayRoles)، و"to left" يضمن رسم لونه فعليًا عند نفس الحافة اليمنى بدل تعارضهما.
+  // حدّان صريحان (45%/55%) بلون صرف ثابت في كل جهة بدل تدرّج بسيط بلونين فقط (0%/100%) - لأن
+  // الأحمر والأصفر لونان متجاوران في دائرة الألوان، فمنطقة المزج بينهما كانت تُقرأ بصريًا
+  // "حمراء-برتقالية" لأكثر من نصف العرض رغم أن نقطة المنتصف الرياضية 50% بالضبط - الحدّان
+  // يضمنان مساحة متساوية فعليًا لكل لون، مع منطقة تداخل ضيقة في المنتصف فقط.
   const headerBackground = displayRoles.length > 1
-    ? 'linear-gradient(to left, ' + displayRoles.map((r) => ROLE_META[r].color).join(', ') + ')'
+    ? 'linear-gradient(to left, '
+      + ROLE_META[displayRoles[0]].color + ' 0%, ' + ROLE_META[displayRoles[0]].color + ' 45%, '
+      + ROLE_META[displayRoles[1]].color + ' 55%, ' + ROLE_META[displayRoles[1]].color + ' 100%)'
     : ROLE_META[displayRoles[0]].color;
 
   // كل بطاقات الصلاحية الممكنة - كل واحدة تُصفَّى ذاتيًا (CardValidityField تُعيد null) إن
@@ -216,7 +220,7 @@ export default function EmployeeInfoCard({ profile }) {
     <div className="app-card" style={{ padding: 0, overflow: 'hidden', border: '1px solid #D9DEE6', marginBottom: 16 }}>
       <div style={{ display: 'flex', background: headerBackground }}>
         {displayRoles.map((r) => (
-          <div key={r} style={{ flex: 1, color: ROLE_META[r].text, textAlign: 'center', fontSize: 12, fontWeight: 'bold', padding: '6px 0' }}>
+          <div key={r} style={{ flex: 1, minWidth: 0, color: ROLE_META[r].text, textAlign: 'center', fontSize: 12, fontWeight: 'bold', padding: '6px 0' }}>
             {r}
           </div>
         ))}
