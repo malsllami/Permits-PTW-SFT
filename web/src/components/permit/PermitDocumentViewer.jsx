@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   getFullPermitView, sendToReceiver, saveSourceWorkData, saveReceiverSection, approveBySource, closeOrCancelByReceiver, closeBySource,
-  initiateReceiverHandover, confirmReceiverHandover, getSecretCodeForSource
+  initiateReceiverHandover, confirmReceiverHandover, getSecretCodeForSource, deletePermitBySource
 } from '../../services/permitsService.js';
 import { getAllSettings, getPublicSettings } from '../../services/settingsService.js';
 import { useSession } from '../../hooks/useSession.js';
@@ -26,6 +26,11 @@ import PartySection from './PartySection.jsx';
 import PostActionBanner from './PostActionBanner.jsx';
 import { WizardStepper, LifecycleTimeline, WizardNav } from './PermitStepperNav.jsx';
 import { SharePanel, SummaryTables } from './PermitSummary.jsx';
+
+// حالات ما قبل توليد رقم التصريح فعليًا - فيها فقط يُسمح للمصدر المُنشئ بحذف التصريح (ينتقل
+// مباشرة لسلة المحذوفات، بلا مرور بالأرشيف). مطابقة تمامًا لـdeletableStatuses في
+// gas/Trash.gs::deletePermitBySource - أي تعديل هناك يجب أن يُطابَق هنا.
+const DELETABLE_STATUSES = ['مسودة', 'بانتظار المستلم', 'بانتظار اعتماد المصدر'];
 
 /**
  * المكوّن المحوري: عرض/تعبئة/توقيع التصريح بكامل بياناته في صفحة/بطاقة واحدة قابلة
@@ -67,6 +72,11 @@ export default function PermitDocumentViewer({ creationId, accessMode, currentUs
   const [voltageOptions, setVoltageOptions] = useState([]);
   const [showCancelReason, setShowCancelReason] = useState(false);
   const [cancelReason, setCancelReason] = useState('');
+  // حذف التصريح بواسطة المصدر المُنشئ - متاح فقط قبل توليد رقم التصريح فعليًا (مسودة/بانتظار
+  // المستلم/بانتظار اعتماد المصدر)؛ بعدها يصبح ساريًا ولا يعود الحذف خيارًا - الإلغاء عندئذٍ
+  // يكون من المستلم فقط (انظر DELETABLE_STATUSES أدناه ومطابقتها لـdeletePermitBySource بالخادم).
+  const [showDeleteReason, setShowDeleteReason] = useState(false);
+  const [deleteReason, setDeleteReason] = useState('');
   const [handoverNewReceiverId, setHandoverNewReceiverId] = useState('');
   const [handoverSignature, setHandoverSignature] = useState('');
   const [showHandoverForm, setShowHandoverForm] = useState(false);
@@ -266,6 +276,19 @@ export default function PermitDocumentViewer({ creationId, accessMode, currentUs
 
   const handleShareWhatsApp = () => {
     window.open('https://wa.me/?text=' + encodeURIComponent(buildWhatsAppMessage()), '_blank');
+  };
+  // حذف التصريح (قبل توليد رقم التصريح فقط) - بلا GPS (ليس إجراءً ميدانيًا)؛ عند النجاح
+  // التصريح لم يعد موجودًا فعليًا فيُغادَر مباشرة للرئيسية بدل استدعاء load() المعتاد.
+  const handleDeletePermit = async () => {
+    setBusy(true);
+    setError('');
+    try {
+      await deletePermitBySource(creationId, deleteReason);
+      navigate('/source/home');
+    } catch (e) {
+      setError(e.message);
+      setBusy(false);
+    }
   };
   const handleReceiverSubmit = () => withGpsAction((gps) => saveReceiverSection(creationId, formData, signature, gps, checkedMap)).then(() => setJustReceived(true));
   // توقيع واحد فقط للمصدر طوال دورة حياة التصريح (يُرسم عند التحويل للمستلم) - عند عودة
@@ -677,6 +700,24 @@ export default function PermitDocumentViewer({ creationId, accessMode, currentUs
             )}
             {justApprovedNumber && (
               <PostActionBanner message="تم توليد رقم التصريح بنجاح." autoRedirectSeconds={redirectSeconds} />
+            )}
+            {/* حذف التصريح - متاح فقط للمصدر المُنشئ وقبل توليد رقم التصريح فعليًا (لم يصبح
+                ساريًا بعد). ينتقل مباشرة لسلة المحذوفات بسبب حذف إلزامي. بعد توليد الرقم يصبح
+                التصريح ساريًا، ولا يبقى الحذف خيارًا - الإلغاء عندها من المستلم فقط. */}
+            {isSourceEditable && DELETABLE_STATUSES.indexOf(permit.status) !== -1 && !showDeleteReason && (
+              <button disabled={busy} onClick={() => setShowDeleteReason(true)} className="no-print" style={{ marginTop: 10, background: 'var(--color-error)', color: '#fff' }}>
+                حذف التصريح
+              </button>
+            )}
+            {isSourceEditable && DELETABLE_STATUSES.indexOf(permit.status) !== -1 && showDeleteReason && (
+              <div className="no-print" style={{ marginTop: 10 }}>
+                <div style={{ fontSize: 12, fontWeight: 'bold', marginBottom: 4 }}>سبب الحذف</div>
+                <input type="text" style={{ width: '100%' }} value={deleteReason} onChange={(e) => setDeleteReason(normalizeMixedInput(e.target.value))} />
+                <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+                  <button disabled={busy || !deleteReason} onClick={handleDeletePermit} style={{ background: 'var(--color-error)', color: '#fff' }}>تأكيد الحذف</button>
+                  <button className="secondary" disabled={busy} onClick={() => setShowDeleteReason(false)}>{t('goBack', sourceLang)}</button>
+                </div>
+              </div>
             )}
           </PartySection>
           )}

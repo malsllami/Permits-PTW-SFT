@@ -2,6 +2,8 @@ import { callApi } from './apiClient.js';
 
 export const createPermit = (permitType, voltageLevel) => callApi('createPermit', { permitType, voltageLevel });
 
+export const deletePermitBySource = (creationId, reason) => callApi('deletePermitBySource', { creationId, reason });
+
 export const sendToReceiver = (creationId, formData, signature, gps, checkedMap) =>
   callApi('sendToReceiver', { creationId, formData, signature, gps, checkedMap });
 
