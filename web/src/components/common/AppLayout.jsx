@@ -17,30 +17,29 @@ export default function AppLayout({ title, children }) {
           يُطبع سابقًا فوق كل صفحة لأنه لم يكن مُستثنى بـ no-print، بعكس مطلب التصميم الصريح
           بمنع ظهور أي عنصر من واجهة الموقع (Header/Sidebar/Buttons) داخل المستند المطبوع. */}
       <header className="no-print" style={{ position: 'relative', overflow: 'hidden', color: '#fff', padding: '12px 20px', display: 'flex', flexWrap: 'wrap', rowGap: 10, justifyContent: 'space-between', alignItems: 'center' }}>
-        {/* خلفية الهيدر بلوني شعار "السعودية للطاقة" (أزرق/أخضر مائل للتركواز) بشكل شريط
-            منحنٍ يتدرّج قطريًا - أزرق سائد من الأعلى عند الطرف الأيمن، ينزلق تدريجيًا لأسفل
-            كلما اتجهنا يسارًا حتى يصبح شريطًا رفيعًا أسفل الهيدر عند الطرف الأيسر (حيث يسود
-            اللون الآخر معظم المساحة) - نفس حركة الانحناء/الالتفاف في شعار الشركة نفسه، عبر
-            SVG مطلق الموضع خلف محتوى الهيدر (يتمدّد بحرية مع أي عرض/ارتفاع فعلي للهيدر). */}
+        {/* خلفية الهيدر بلوني شعار "السعودية للطاقة" (أزرق/تركوازي) - مزيج متدرّج واحد متصل
+            بلا أي خط فاصل بين اللونين (لا شكلين منفصلين كما في المحاولة الأولى): أزرق خالص
+            عند الطرف الأيمن، يمتد كخط رفيع نحو الوسط حيث يبدأ التركوازي بالتشكّل تدريجيًا حتى
+            يسيطر عند الطرف الأيسر (والعكس تمامًا للأزرق). خط منحنٍ رفيع شبه شفاف فوق التدرّج
+            يوحي بحركة الانحناء نفسها الموجودة بشعار الشركة، دون أن يُنشئ حدًا فاصلًا حقيقيًا. */}
         <svg
           viewBox="0 0 1440 100" preserveAspectRatio="none"
           style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', zIndex: 0 }}
         >
           <defs>
-            <linearGradient id="hdrTeal" x1="0" y1="0" x2="1" y2="1">
-              <stop offset="0%" stopColor="#1FAE9A" />
+            <linearGradient id="hdrBlend" x1="1" y1="0" x2="0" y2="0">
+              <stop offset="0%" stopColor="#1668A8" />
+              <stop offset="33%" stopColor="#1668A8" />
+              <stop offset="50%" stopColor="#22A5A0" />
+              <stop offset="67%" stopColor="#2FC6B4" />
               <stop offset="100%" stopColor="#2FC6B4" />
             </linearGradient>
-            <linearGradient id="hdrBlue" x1="1" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor="#0D4F8B" />
-              <stop offset="55%" stopColor="#1668A8" />
-              <stop offset="100%" stopColor="#1E88C7" />
-            </linearGradient>
           </defs>
-          <rect x="0" y="0" width="1440" height="100" fill="url(#hdrTeal)" />
+          <rect x="0" y="0" width="1440" height="100" fill="url(#hdrBlend)" />
+          {/* خط الانحناء الزخرفي - رفيع وشبه شفاف، لا يرسم منطقة لون منفصلة، فقط إيحاء الحركة. */}
           <path
-            fill="url(#hdrBlue)"
-            d="M1440,0 C1150,3 950,15 720,40 C490,65 290,78 0,82 L0,100 C290,96 490,84 720,58 C950,32 1150,15 1440,85 Z"
+            d="M1440,30 C1150,42 950,55 720,50 C490,45 290,58 0,70"
+            fill="none" stroke="rgba(255,255,255,0.35)" strokeWidth="2.5"
           />
         </svg>
         <div style={{ position: 'relative', zIndex: 1, display: 'flex', flexWrap: 'wrap', rowGap: 8, gap: 16, alignItems: 'center' }}>
