@@ -18,10 +18,10 @@ export default function AppLayout({ title, children }) {
           بمنع ظهور أي عنصر من واجهة الموقع (Header/Sidebar/Buttons) داخل المستند المطبوع. */}
       <header className="no-print" style={{ position: 'relative', overflow: 'hidden', color: '#fff', padding: '12px 20px', display: 'flex', flexWrap: 'wrap', rowGap: 10, justifyContent: 'space-between', alignItems: 'center' }}>
         {/* خلفية الهيدر بلوني شعار "السعودية للطاقة" (أزرق/تركوازي) - مزيج متدرّج واحد متصل
-            بلا أي خط فاصل بين اللونين (لا شكلين منفصلين كما في المحاولة الأولى): أزرق خالص
-            عند الطرف الأيمن، يمتد كخط رفيع نحو الوسط حيث يبدأ التركوازي بالتشكّل تدريجيًا حتى
-            يسيطر عند الطرف الأيسر (والعكس تمامًا للأزرق). خط منحنٍ رفيع شبه شفاف فوق التدرّج
-            يوحي بحركة الانحناء نفسها الموجودة بشعار الشركة، دون أن يُنشئ حدًا فاصلًا حقيقيًا. */}
+            بلا أي خط فاصل بين اللونين: أزرق خالص عند الطرف الأيمن يمتد كخط رفيع نحو الوسط
+            حيث يبدأ التركوازي بالتشكّل تدريجيًا حتى يسيطر عند الطرف الأيسر (والعكس تمامًا
+            للأزرق). تركوازي بدرجة أهدأ (أقل تشبّعًا) بدل الدرجة الصارخة السابقة، وبلا أي خط
+            زخرفي إضافي فوق التدرّج (كان يشوّه الهيدر بلا داعٍ). */}
         <svg
           viewBox="0 0 1440 100" preserveAspectRatio="none"
           style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', zIndex: 0 }}
@@ -30,17 +30,12 @@ export default function AppLayout({ title, children }) {
             <linearGradient id="hdrBlend" x1="1" y1="0" x2="0" y2="0">
               <stop offset="0%" stopColor="#1668A8" />
               <stop offset="33%" stopColor="#1668A8" />
-              <stop offset="50%" stopColor="#22A5A0" />
-              <stop offset="67%" stopColor="#2FC6B4" />
-              <stop offset="100%" stopColor="#2FC6B4" />
+              <stop offset="50%" stopColor="#2B7D82" />
+              <stop offset="67%" stopColor="#348C86" />
+              <stop offset="100%" stopColor="#348C86" />
             </linearGradient>
           </defs>
           <rect x="0" y="0" width="1440" height="100" fill="url(#hdrBlend)" />
-          {/* خط الانحناء الزخرفي - رفيع وشبه شفاف، لا يرسم منطقة لون منفصلة، فقط إيحاء الحركة. */}
-          <path
-            d="M1440,30 C1150,42 950,55 720,50 C490,45 290,58 0,70"
-            fill="none" stroke="rgba(255,255,255,0.35)" strokeWidth="2.5"
-          />
         </svg>
         <div style={{ position: 'relative', zIndex: 1, display: 'flex', flexWrap: 'wrap', rowGap: 8, gap: 16, alignItems: 'center' }}>
           <img src="/Permits-PTW-SFT/logo.png" alt="الشعار" style={{ height: 32 }} />
@@ -50,13 +45,13 @@ export default function AppLayout({ title, children }) {
               تنقّل آخر. المدير وحده يحتفظ برابط "لوحة المدير" للوصول لأدوات الإدارة المنفصلة. */}
           {employee && employee.isAdmin && (
             <nav style={{ display: 'flex', flexWrap: 'wrap', gap: 10, fontSize: 13 }}>
-              <Link to="/admin" style={{ color: '#fff', whiteSpace: 'nowrap' }}>لوحة المدير</Link>
+              <Link to="/admin" className="header-link" style={{ whiteSpace: 'nowrap' }}>لوحة المدير</Link>
             </nav>
           )}
         </div>
         <div style={{ position: 'relative', zIndex: 1, display: 'flex', flexWrap: 'wrap', gap: 10, alignItems: 'center', fontSize: 13 }}>
           {employee && <span style={{ whiteSpace: 'nowrap' }}>{employee.fullName}</span>}
-          {employee && <button onClick={handleLogout} style={{ background: 'rgba(255,255,255,0.15)', color: '#fff', whiteSpace: 'nowrap' }}>خروج</button>}
+          {employee && <button onClick={handleLogout} className="header-btn" style={{ whiteSpace: 'nowrap' }}>خروج</button>}
         </div>
       </header>
       <main style={{ padding: 16 }}>{children}</main>

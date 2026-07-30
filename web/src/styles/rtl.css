@@ -147,6 +147,26 @@ button:disabled {
   background: #0E4B92;
 }
 
+/* هيدر الموقع - نص/روابط/زر خروج بلون واحد معاكس لخلفية الهيدر (أبيض ثابت، يقرأ بوضوح فوق
+   تدرّج الأزرق/التركوازي كليهما)، بحدّ واضح بدل التعبئة اللونية، مع حالة Hover موحّدة. */
+.header-btn {
+  background: transparent;
+  border: 1.5px solid rgba(255, 255, 255, 0.75);
+  color: #fff;
+}
+.header-btn:hover {
+  background: rgba(255, 255, 255, 0.15);
+  border-color: #fff;
+}
+.header-link {
+  color: #fff;
+  padding-bottom: 2px;
+  border-bottom: 1.5px solid transparent;
+}
+.header-link:hover {
+  border-bottom-color: rgba(255, 255, 255, 0.85);
+}
+
 /* مؤشر تحميل صغير دوّار - لحالة "جارٍ التحقق..." بزر تسجيل الدخول. */
 .spinner {
   display: inline-block;
