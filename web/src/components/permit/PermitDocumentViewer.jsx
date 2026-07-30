@@ -264,6 +264,28 @@ export default function PermitDocumentViewer({ creationId, accessMode, currentUs
     return lines.join('\n');
   }
 
+  /** نص رسالة المشاركة عبر واتساب عند إغلاق المستلم (لإبلاغ المصدر الفعلي الذي سيتولى
+      الإغلاق النهائي) - بيانات المستلم وتاريخ الإغلاق بدل بيانات المصدر وتاريخ الإرسال. */
+  function buildClosingWhatsAppMessage() {
+    const lines = [
+      (companyName || '') + ' - قسم التصاريح',
+      '',
+      'نوع التصريح: ' + (permit.permitType === 'PTW' ? 'تصريح العمل (Permit To Work)' : 'تصريح الفحص (Sanction For Testing)'),
+      '',
+      'طلب إغلاق نهائي من المصدر',
+      '',
+      'بيانات المستلم:',
+      'الرقم الوظيفي: ' + (permit.receiver.employeeId || '—'),
+      'الاسم: ' + (permit.receiver.fullName || '—'),
+      'رقم الجوال: ' + (permit.receiver.mobile || '—'),
+      '',
+      'رابط التصريح: ' + permit.permitLink,
+      '',
+      'تاريخ الإغلاق والوقت: ' + (formatDateTimeShort(permit.receiver.closeDateTime) || '—')
+    ];
+    return lines.join('\n');
+  }
+
   // بعد إغلاق/إلغاء التصريح (أو لزائر مسح رمز QR لتصريح مغلق) لا يوجد أي زر خروج واضح من
   // شاشة العرض النهائية - موظف مسجَّل دخوله يعود لشاشته الرئيسية، أما زائر مجهول (بلا جلسة،
   // فتح الرابط مباشرة من كاميرا الجوال) فلا "رئيسية" له، فتُغلَق التبويبة نفسها إن أمكن
@@ -276,6 +298,9 @@ export default function PermitDocumentViewer({ creationId, accessMode, currentUs
 
   const handleShareWhatsApp = () => {
     window.open('https://wa.me/?text=' + encodeURIComponent(buildWhatsAppMessage()), '_blank');
+  };
+  const handleShareClosingWhatsApp = () => {
+    window.open('https://wa.me/?text=' + encodeURIComponent(buildClosingWhatsAppMessage()), '_blank');
   };
   // حذف التصريح (قبل توليد رقم التصريح فقط) - بلا GPS (ليس إجراءً ميدانيًا)؛ عند النجاح
   // التصريح لم يعد موجودًا فعليًا فيُغادَر مباشرة للرئيسية بدل استدعاء load() المعتاد.
@@ -900,6 +925,9 @@ export default function PermitDocumentViewer({ creationId, accessMode, currentUs
                     onCopy={copyPermitLink}
                     copied={linkCopied}
                   />
+                  <button onClick={handleShareClosingWhatsApp} className="no-print" style={{ marginTop: 8, background: '#25D366', color: '#fff' }}>
+                    {t('shareViaWhatsapp', receiverCloseLang)}
+                  </button>
                   {/* رمز سري يجب مشاركته - زر رئيسية يدوي فقط بلا عدّاد تلقائي حتى تُتاح
                       الفرصة الكاملة لمشاركته أولًا. */}
                   <PostActionBanner message="تم إغلاق قسم المستلم بنجاح." autoRedirectSeconds={0} />
