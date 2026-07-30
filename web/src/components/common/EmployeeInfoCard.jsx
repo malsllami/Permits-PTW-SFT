@@ -1,13 +1,14 @@
 import React, { useState } from 'react';
-import { rolesToList } from '../../utils/roles.js';
 import { formatBilingualDateLines } from '../../hooks/useHijriGregorianDate.js';
-import { updateMyMobile } from '../../services/employeesService.js';
+import { updateMyMobile, updateMyCardExpiry } from '../../services/employeesService.js';
 import { convertArabicDigitsToEnglish } from '../../hooks/useArabicIndicDigits.js';
 import Icon from './Icon.jsx';
 
 // هيدر البطاقة تدرّج لوني واحد متصل (وليس قسمين صلبين متجاورين بخط فاصل حاد) بين ألوان
-// الصلاحيات التي يحملها الموظف فعليًا - أحمر=مصدر دائمًا/أصفر=مستلم دائمًا، يمتزجان تدريجيًا
-// في المنتصف عند ازدواج الصلاحية بدل حد فاصل واضح بينهما.
+// أنواع البطاقات التي يحملها الموظف فعليًا (له تاريخ انتهاء مُدخَل) - أحمر=مصدر دائمًا/
+// أصفر=مستلم دائمًا، يمتزجان تدريجيًا في المنتصف عند حمل البطاقتين معًا، بلون واحد صريح
+// فقط إن كان يحمل واحدة منهما. يعتمد على وجود تاريخ الانتهاء نفسه (لا على حقل "الدور" -
+// موظف قد يحمل دور "مصدر" فقط بينما لديه فعليًا بطاقتا مصدر ومستلم مُدخلتان معًا).
 const ROLE_META = {
   'مصدر': { color: '#D9534F', text: '#fff' },
   'مستلم': { color: '#F0B429', text: '#5C4400' }
@@ -39,31 +40,86 @@ function ExpiryDateValue({ value }) {
   );
 }
 
+/** يحوّل أي قيمة تاريخ مخزَّنة (نص/ISO) إلى صيغة YYYY-MM-DD المطلوبة لـ input[type=date]. */
+function toDateInputValue(value) {
+  if (!value) return '';
+  const d = new Date(value);
+  if (isNaN(d.getTime())) return '';
+  return d.toISOString().slice(0, 10);
+}
+
 /**
  * بطاقة صلاحية واحدة (عمل/مصدر/مستلم) - لا تظهر إطلاقًا إن لم يُدخَل تاريخ انتهاء لها فعليًا
- * في جدول الموظفين (قد يحمل الموظف بطاقة مصدر فقط، أو الاثنتين معًا، أو لا شيء). حدّ جانبي
- * بلون الصلاحية نفسها (عمل=أزرق النظام/مصدر=أحمر/مستلم=أصفر) للتمييز بين البطاقات عند تعدّدها،
- * وشارة "المدة المتبقية" بلون منفصل حسب حدّة القرب من الانتهاء (employeeCardTone).
+ * في جدول الموظفين. حدّ جانبي بلون الصلاحية نفسها (عمل=أزرق النظام/مصدر=أحمر/مستلم=أصفر)
+ * للتمييز بين البطاقات عند تعدّدها، وشارة "المدة المتبقية" بلون منفصل حسب حدّة القرب من
+ * الانتهاء (employeeCardTone). قابلة للتعديل الذاتي أيضًا (تاريخ الانتهاء نفسه) - المدة
+ * المتبقية تُعاد حسابها تلقائيًا في الخادم فور الحفظ.
  */
-function CardValidityField({ label, color, expiry, remaining }) {
+function CardValidityField({ label, field, color, expiry, remaining, onSaved }) {
+  const [editing, setEditing] = useState(false);
+  const [value, setValue] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
   if (!expiry) return null;
   const tone = employeeCardTone(remaining);
+
+  const startEditing = () => { setValue(toDateInputValue(expiry)); setError(''); setEditing(true); };
+
+  const handleSave = async () => {
+    if (!value) return;
+    setSaving(true);
+    setError('');
+    try {
+      const updated = await updateMyCardExpiry(field, value);
+      onSaved(updated);
+      setEditing(false);
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
   return (
     <div style={{ background: 'var(--color-surface)', boxShadow: '0 1px 4px rgba(0,0,0,0.1)', borderRadius: 'var(--radius-md)', borderInlineStart: '4px solid ' + color, padding: '10px 12px', flex: '1 1 150px' }}>
-      <div style={{ fontSize: 11, opacity: 0.7, fontWeight: 'bold' }}>{label}</div>
-      <div style={{ fontSize: 'var(--fs-field-value)', fontWeight: 'bold', marginTop: 2 }}>
-        <ExpiryDateValue value={expiry} />
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div style={{ fontSize: 11, opacity: 0.7, fontWeight: 'bold' }}>{label}</div>
+        {!editing && (
+          <button type="button" onClick={startEditing} style={{ background: 'none', padding: 0, minHeight: 0, display: 'flex', alignItems: 'center' }}>
+            <Icon name="edit" size={14} />
+          </button>
+        )}
       </div>
-      {tone && (remaining !== '' && remaining !== undefined && remaining !== null) && (
-        <div style={{ display: 'inline-block', marginTop: 6, background: tone.bg, color: tone.text, borderRadius: 999, padding: '2px 10px', fontSize: 11, fontWeight: 'bold' }}>
-          {remaining > 0 ? 'سارية لمدة ' + remaining + ' يوم' : 'منتهية'}
+      {!editing ? (
+        <>
+          <div style={{ fontSize: 'var(--fs-field-value)', fontWeight: 'bold', marginTop: 2 }}>
+            <ExpiryDateValue value={expiry} />
+          </div>
+          {tone && (remaining !== '' && remaining !== undefined && remaining !== null) && (
+            <div style={{ display: 'inline-block', marginTop: 6, background: tone.bg, color: tone.text, borderRadius: 999, padding: '2px 10px', fontSize: 11, fontWeight: 'bold' }}>
+              {remaining > 0 ? 'سارية لمدة ' + remaining + ' يوم' : 'منتهية'}
+            </div>
+          )}
+        </>
+      ) : (
+        <div style={{ marginTop: 4 }}>
+          <input type="date" value={value} onChange={(e) => setValue(e.target.value)} style={{ width: '100%', minHeight: 34, fontSize: 12, padding: '4px 6px' }} />
+          <div style={{ display: 'flex', gap: 6, marginTop: 6 }}>
+            <button type="button" disabled={saving || !value} onClick={handleSave} style={{ background: 'var(--color-primary)', color: '#fff', minHeight: 32, fontSize: 11, padding: '0 10px', flex: 1 }}>
+              {saving ? '...' : 'حفظ'}
+            </button>
+            <button type="button" onClick={() => setEditing(false)} style={{ background: 'var(--color-secondary)', color: '#fff', minHeight: 32, fontSize: 11, padding: '0 10px' }}>
+              إلغاء
+            </button>
+          </div>
+          {error && <div style={{ color: 'var(--color-error)', fontSize: 11, marginTop: 4 }}>{error}</div>}
         </div>
       )}
     </div>
   );
 }
 
-/** حقل الجوال قابل للتعديل ذاتيًا (المدير فقط يملك تعديل بقية البيانات) - إدخال + زر حفظ. */
+/** حقل الجوال قابل للتعديل ذاتيًا - إدخال + زر حفظ. */
 function MobileField({ mobile, onSaved }) {
   const [editing, setEditing] = useState(false);
   const [value, setValue] = useState(mobile || '');
@@ -89,7 +145,7 @@ function MobileField({ mobile, onSaved }) {
     setError('');
     try {
       const updated = await updateMyMobile(convertArabicDigitsToEnglish(value));
-      onSaved(updated.mobile);
+      onSaved(updated);
       setEditing(false);
     } catch (e) {
       setError(e.message);
@@ -121,20 +177,24 @@ function MobileField({ mobile, onSaved }) {
 
 /**
  * بطاقة بيانات الموظف بالشاشة الرئيسية - قابلة للطي (مطويّة افتراضيًا: سطر واحد فقط
- * 👤 الاسم / الرقم الوظيفي - ثابتان لا يتغيّران أبدًا). عند التوسيع: الجوال (قابل للتعديل
- * الذاتي)، ثم بطاقة صلاحية مستقلة لكل نوع بطاقة أُدخل له تاريخ انتهاء فعليًا في جدول
- * الموظفين (عمل/مصدر/مستلم) - قد تظهر واحدة أو أكثر حسب البيانات الفعلية فقط، لا افتراضات.
+ * 👤 الاسم / الرقم الوظيفي - ثابتان لا يتغيّران أبدًا). عند التوسيع: الجوال + تاريخ انتهاء
+ * كل بطاقة (عمل/مصدر/مستلم) قابلان للتعديل الذاتي، وتظهر بطاقة الصلاحية فقط لما أُدخل له
+ * تاريخ انتهاء فعليًا في جدول الموظفين - لا افتراضات.
  */
 export default function EmployeeInfoCard({ profile }) {
   const [open, setOpen] = useState(false);
-  const [mobile, setMobile] = useState(null);
+  // لقطة محلية تُستبدَل بالكامل بأحدث profile عائد من الخادم فور أي حفظ ناجح (جوال أو تاريخ
+  // بطاقة) - أبسط من تتبّع كل حقل بحالة مستقلة، ويضمن اتساق "المدة المتبقية" المُعاد حسابها.
+  const [override, setOverride] = useState(null);
   if (!profile) return null;
-  const currentMobile = mobile !== null ? mobile : profile.mobile;
+  const current = override || profile;
 
-  const activeRoles = rolesToList(profile.role).filter((r) => ROLE_META[r]);
-  const displayRoles = activeRoles.length ? activeRoles : ['مصدر'];
-  // تدرّج لوني واحد متصل بين ألوان الصلاحيات المزدوجة (بدل قسمين صلبين بخط فاصل) - بلون
-  // واحد صرف إن كانت صلاحية واحدة فقط.
+  // أنواع البطاقات الفعلية التي يحملها الموظف - حسب وجود تاريخ انتهاء مُدخَل لها بالفعل
+  // (وليس حسب حقل "الدور" النصي، الذي قد لا يطابق ما أُدخل فعليًا من بطاقات).
+  const presentRoles = ['مصدر', 'مستلم'].filter((r) =>
+    r === 'مصدر' ? !!current.issuerCardExpiry : !!current.receiverCardExpiry
+  );
+  const displayRoles = presentRoles.length ? presentRoles : ['مصدر'];
   const headerBackground = displayRoles.length > 1
     ? 'linear-gradient(90deg, ' + displayRoles.map((r) => ROLE_META[r].color).join(', ') + ')'
     : ROLE_META[displayRoles[0]].color;
@@ -142,9 +202,9 @@ export default function EmployeeInfoCard({ profile }) {
   // كل بطاقات الصلاحية الممكنة - كل واحدة تُصفَّى ذاتيًا (CardValidityField تُعيد null) إن
   // لم يُدخَل لها تاريخ انتهاء فعليًا، فتظهر فقط البطاقات ذات البيانات الحقيقية المدخلة.
   const cardFields = [
-    { key: 'work', label: 'تاريخ انتهاء بطاقة العمل', color: 'var(--color-primary)', expiry: profile.workCardExpiry, remaining: profile.workCardRemainingDays },
-    { key: 'مصدر', label: 'تاريخ انتهاء بطاقة المصدر', color: ROLE_META['مصدر'].color, expiry: profile.issuerCardExpiry, remaining: profile.issuerCardRemainingDays },
-    { key: 'مستلم', label: 'تاريخ انتهاء بطاقة المستلم', color: ROLE_META['مستلم'].color, expiry: profile.receiverCardExpiry, remaining: profile.receiverCardRemainingDays }
+    { key: 'work', field: 'workCardExpiry', label: 'تاريخ انتهاء بطاقة العمل', color: 'var(--color-primary)', expiry: current.workCardExpiry, remaining: current.workCardRemainingDays },
+    { key: 'مصدر', field: 'issuerCardExpiry', label: 'تاريخ انتهاء بطاقة المصدر', color: ROLE_META['مصدر'].color, expiry: current.issuerCardExpiry, remaining: current.issuerCardRemainingDays },
+    { key: 'مستلم', field: 'receiverCardExpiry', label: 'تاريخ انتهاء بطاقة المستلم', color: ROLE_META['مستلم'].color, expiry: current.receiverCardExpiry, remaining: current.receiverCardRemainingDays }
   ];
 
   return (
@@ -162,16 +222,16 @@ export default function EmployeeInfoCard({ profile }) {
         style={{ width: '100%', background: 'none', padding: '10px 14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', minHeight: 0 }}
       >
         <span style={{ fontSize: 13, fontWeight: 'bold', color: 'var(--color-text)', display: 'flex', alignItems: 'center', gap: 6 }}>
-          👤 {profile.fullName}
-          <span style={{ opacity: 0.6, fontWeight: 500 }}>{profile.employeeId}</span>
+          👤 {current.fullName}
+          <span style={{ color: 'var(--color-text)', opacity: 0.85, fontWeight: 700 }}>{current.employeeId}</span>
         </span>
         <Icon name={open ? 'expand_less' : 'expand_more'} size={18} />
       </button>
       {open && (
         <div style={{ padding: '0 16px 16px', display: 'flex', flexWrap: 'wrap', columnGap: 8, rowGap: 6 }}>
-          <MobileField mobile={currentMobile} onSaved={setMobile} />
+          <MobileField mobile={current.mobile} onSaved={setOverride} />
           {cardFields.map((c) => (
-            <CardValidityField key={c.key} label={c.label} color={c.color} expiry={c.expiry} remaining={c.remaining} />
+            <CardValidityField key={c.key} label={c.label} field={c.field} color={c.color} expiry={c.expiry} remaining={c.remaining} onSaved={setOverride} />
           ))}
         </div>
       )}

@@ -9,4 +9,5 @@ export const deleteEmployee = (employeeId) => callApi('deleteEmployee', { employ
 
 export const getMyProfile = () => callApi('getMyProfile', {});
 export const updateMyMobile = (mobile) => callApi('updateMyMobile', { mobile });
+export const updateMyCardExpiry = (field, value) => callApi('updateMyCardExpiry', { field, value });
 export const getMyClosingStats = () => callApi('getMyClosingStats', {});
