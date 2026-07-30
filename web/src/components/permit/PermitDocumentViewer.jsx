@@ -861,9 +861,11 @@ export default function PermitDocumentViewer({ creationId, accessMode, currentUs
             </div>
           )}
 
-          {/* 4) قسم إغلاق/إلغاء المستلم - منفصل، يظهر فقط بعد اعتماد المصدر وتوليد رقم التصريح،
-              وفي وضع الويزار تحديدًا فقط عند الوصول لخطوة الإغلاق (لا يظهر مبكرًا ضمن خطوات
-              العمل/المصدر/المستلم/المراجعة حتى لو كانت الحالة تسمح تقنيًا بالتعديل). */}
+          {/* 4) قسم إغلاق/إلغاء المستلم و5) إغلاق المصدر النهائي - جنبًا إلى جنب في العرض
+              النهائي (!wizardMode) بنفس أسلوب عمودَي بيانات المصدر/المستلم في صفحة الإنشاء،
+              بدل التتابع الرأسي السابق. أثناء الويزار (خطوة الإغلاق فقط) يبقيان عمودًا واحدًا
+              كما هما لأن قسمًا واحدًا فقط يكون فعّالًا للتعبئة في كل مرة. */}
+          <div className={!wizardMode ? 'responsive-grid-2col-lg' : undefined}>
           {showReceiverCloseSection && (wizardMode ? showStep(STEP_CLOSE) : showView(VIEW_PAGE_CLOSE)) && (
             receiverCloseEditable && !ackReceiverClose ? (
               <SafetyAcknowledgmentGate permitType={permit.permitType} onAcknowledge={() => setAckReceiverClose(true)} />
@@ -937,10 +939,64 @@ export default function PermitDocumentViewer({ creationId, accessMode, currentUs
             )
           )}
 
+          {/* 5) إغلاق المصدر النهائي - يُفتح فقط بعد إغلاق/إلغاء المستلم */}
+          {showSourceCloseSection && (wizardMode ? showStep(STEP_CLOSE) : showView(VIEW_PAGE_CLOSE)) && (
+            sourceCloseEditable && !ackSourceClose ? (
+              <SafetyAcknowledgmentGate permitType={permit.permitType} onAcknowledge={() => setAckSourceClose(true)} />
+            ) : (
+            // قبل تنفيذ الإغلاق فعليًا permit.closingSource ما زال فارغًا (لا يُعبَّأ إلا بعد
+            // closeBySource) - تُعرض هوية المستخدم الحالي (currentUser) بدلًا منه أثناء
+            // التعبئة، وبيانات closingSource المحفوظة فعليًا بعد الإغلاق.
+            <PartySection
+              title="إغلاق المصدر النهائي / Final Issuer Close-out"
+              theme={sourceCloseTheme}
+              lang={sourceCloseLang}
+              checklist={(
+                <SafetyChecklistSection
+                  permitType={permit.permitType}
+                  stage="إغلاق المصدر"
+                  checkedMap={checkedMap}
+                  readOnly={!sourceCloseEditable}
+                  onToggle={(row, v) => setCheckedMap((m) => ({ ...m, [row]: v }))}
+                  onCompletionChange={setSourceCloseChecklistComplete}
+                  lang={sourceCloseLang}
+                  onLangChange={setSourceCloseLang}
+                  forceOpen={!wizardMode}
+                />
+              )}
+              employeeId={sourceCloseEditable ? (currentUser ? currentUser.employeeId : '') : permit.closingSource.employeeId}
+              fullName={sourceCloseEditable ? (currentUser ? currentUser.fullName : '') : permit.closingSource.fullName}
+              mobile={sourceCloseEditable ? (currentUser ? currentUser.mobile : '') : permit.closingSource.mobile}
+              cardRemainingDays={sourceCloseEditable ? (currentUser ? currentUser.issuerCardRemainingDays : '') : permit.closingSource.cardRemainingDays}
+              cardExpiry={sourceCloseEditable ? (currentUser ? currentUser.issuerCardExpiry : '') : permit.closingSource.cardExpiry}
+              dateTime={permit.closingSource.closeDateTime}
+              gps={permit.closingSource.closeGps}
+              savedSignature={permit.closingSource.closeSignature}
+              editable={sourceCloseEditable}
+              signature={signature}
+              onSignatureChange={setSignature}
+              extraFields={[
+                { label: t('authorityOfficialName', sourceCloseLang), value: permit.authorityOfficialName, onChange: () => {}, icon: <Icon name="person" size={12} /> }
+              ]}
+            >
+              {sourceCloseEditable && (
+                <button className="primary" disabled={busy || !signature || !sourceCloseChecklistComplete} onClick={handleSourceClose} style={{ marginTop: 10 }}>
+                  {busy ? t('closingInProgress', sourceCloseLang) : (!sourceCloseChecklistComplete ? t('completeActionsFirst', sourceCloseLang) : t('finalCloseoutAction', sourceCloseLang))}
+                </button>
+              )}
+              {justClosedFinal && (
+                <PostActionBanner message="تم الإغلاق النهائي للتصريح بنجاح." autoRedirectSeconds={redirectSeconds} />
+              )}
+            </PartySection>
+            )
+          )}
+          </div>
+
           {/* نقل التصريح لمستلم آخر (تبديل وردية) - زر مطوي بدل قسم دائم الظهور، لأن أغلب
               التصاريح لا تحتاج نقل وردية إطلاقًا؛ يفتح النموذج فقط عند الاستخدام الفعلي.
               مخفي تمامًا عند الطباعة/PDF (إجراء إدخال حي وليس جزءًا من السجل النهائي -
-              سجل النقل الفعلي إن حدث يظهر في الجدول التاريخي أدناه بغض النظر عن هذا الزر). */}
+              سجل النقل الفعلي إن حدث يظهر في الجدول التاريخي أدناه بغض النظر عن هذا الزر).
+              نُقل ليصبح بعد شبكة عمودَي الإغلاق (بدل الفصل بينهما) بعد أن أصبحا جنبًا إلى جنب. */}
           {receiverCloseEditable && !permit.pendingHandover && (wizardMode ? showStep(STEP_CLOSE) : showView(VIEW_PAGE_CLOSE)) && (
             <div className="no-print" style={{ marginTop: 16 }}>
               {!showHandoverForm ? (
@@ -1011,57 +1067,6 @@ export default function PermitDocumentViewer({ creationId, accessMode, currentUs
             </section>
           )}
 
-          {/* 5) إغلاق المصدر النهائي - يُفتح فقط بعد إغلاق/إلغاء المستلم */}
-          {showSourceCloseSection && (wizardMode ? showStep(STEP_CLOSE) : showView(VIEW_PAGE_CLOSE)) && (
-            sourceCloseEditable && !ackSourceClose ? (
-              <SafetyAcknowledgmentGate permitType={permit.permitType} onAcknowledge={() => setAckSourceClose(true)} />
-            ) : (
-            // قبل تنفيذ الإغلاق فعليًا permit.closingSource ما زال فارغًا (لا يُعبَّأ إلا بعد
-            // closeBySource) - تُعرض هوية المستخدم الحالي (currentUser) بدلًا منه أثناء
-            // التعبئة، وبيانات closingSource المحفوظة فعليًا بعد الإغلاق.
-            <PartySection
-              title="إغلاق المصدر النهائي / Final Issuer Close-out"
-              theme={sourceCloseTheme}
-              lang={sourceCloseLang}
-              checklist={(
-                <SafetyChecklistSection
-                  permitType={permit.permitType}
-                  stage="إغلاق المصدر"
-                  checkedMap={checkedMap}
-                  readOnly={!sourceCloseEditable}
-                  onToggle={(row, v) => setCheckedMap((m) => ({ ...m, [row]: v }))}
-                  onCompletionChange={setSourceCloseChecklistComplete}
-                  lang={sourceCloseLang}
-                  onLangChange={setSourceCloseLang}
-                  forceOpen={!wizardMode}
-                />
-              )}
-              employeeId={sourceCloseEditable ? (currentUser ? currentUser.employeeId : '') : permit.closingSource.employeeId}
-              fullName={sourceCloseEditable ? (currentUser ? currentUser.fullName : '') : permit.closingSource.fullName}
-              mobile={sourceCloseEditable ? (currentUser ? currentUser.mobile : '') : permit.closingSource.mobile}
-              cardRemainingDays={sourceCloseEditable ? (currentUser ? currentUser.issuerCardRemainingDays : '') : permit.closingSource.cardRemainingDays}
-              cardExpiry={sourceCloseEditable ? (currentUser ? currentUser.issuerCardExpiry : '') : permit.closingSource.cardExpiry}
-              dateTime={permit.closingSource.closeDateTime}
-              gps={permit.closingSource.closeGps}
-              savedSignature={permit.closingSource.closeSignature}
-              editable={sourceCloseEditable}
-              signature={signature}
-              onSignatureChange={setSignature}
-              extraFields={[
-                { label: t('authorityOfficialName', sourceCloseLang), value: permit.authorityOfficialName, onChange: () => {}, icon: <Icon name="person" size={12} /> }
-              ]}
-            >
-              {sourceCloseEditable && (
-                <button className="primary" disabled={busy || !signature || !sourceCloseChecklistComplete} onClick={handleSourceClose} style={{ marginTop: 10 }}>
-                  {busy ? t('closingInProgress', sourceCloseLang) : (!sourceCloseChecklistComplete ? t('completeActionsFirst', sourceCloseLang) : t('finalCloseoutAction', sourceCloseLang))}
-                </button>
-              )}
-              {justClosedFinal && (
-                <PostActionBanner message="تم الإغلاق النهائي للتصريح بنجاح." autoRedirectSeconds={redirectSeconds} />
-              )}
-            </PartySection>
-            )
-          )}
           {/* زر "السابق" في خطوة الإغلاق يعود لمراجعة بيانات المستلم فقط للاطلاع - قسم الإغلاق
               نفسه يبقى بحالته (مفتوح/مغلق) بحسب حالة التصريح الفعلية بغض النظر عن التنقل. */}
           {wizardMode && showStep(STEP_CLOSE) && (
@@ -1125,7 +1130,11 @@ export default function PermitDocumentViewer({ creationId, accessMode, currentUs
         الشاشة (screen:none) ولا يظهر إلا عند الطباعة الفعلية (@media print). يُركَّب في
         الـDOM بمجرد canExportPdf (توليد رقم التصريح) وليس فقط بعد الإغلاق الكامل. */}
     {canExportPdf && (
-      <PermitPrint permit={permit} companyName={companyName} printLang={printLang} />
+      <PermitPrint
+        permit={permit} companyName={companyName} printLang={printLang}
+        sourceLang={sourceLang} receiverLang={receiverLang}
+        receiverCloseLang={receiverCloseLang} sourceCloseLang={sourceCloseLang}
+      />
     )}
     </>
   );

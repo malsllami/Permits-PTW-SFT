@@ -42,7 +42,10 @@ const PRINT = {
  *    (4 مجموعات: مصدر/مستلم/إغلاق مستلم/إغلاق مصدر) + ملخص التواقيع الأربعة.
  * 3) المرجع القانوني والإجرائي: قواعد وتعليمات السلامة فقط - صفحة ثابتة بلا بيانات متغيّرة.
  */
-export default function PermitPrint({ permit, companyName, printLang }) {
+export default function PermitPrint({
+  permit, companyName, printLang,
+  sourceLang = 'ar', receiverLang = 'ar', receiverCloseLang = 'ar', sourceCloseLang = 'ar'
+}) {
   const { items: allSafetyItems, loaded: safetyItemsLoaded } = useAllSafetyItems(permit.permitType);
   const instructions = allSafetyItems.filter((i) => i.itemType === 'تعليمات');
   const actionsByStage = (stage) => allSafetyItems.filter((i) => i.itemType === 'إجراء' && i.stage === stage);
@@ -84,7 +87,7 @@ export default function PermitPrint({ permit, companyName, printLang }) {
   return (
     <div className="permit-print-root" data-pdf-ready={safetyItemsLoaded ? 'true' : 'false'}>
       <PrintPage pageNumber={1} totalPages={3} permit={permit} companyName={companyName} permitTitle={permitTitle}>
-        <WorkDataSection permit={permit} />
+        <WorkDataSection permit={permit} lang={sourceLang} />
 
         {/* رقم التصريح + QR مباشرة أسفل بيانات المهمة - أهم معلومة في المستند تظهر أولًا، قبل
             بيانات الأشخاص. يمين: رقم التصريح - يسار: QR (حسب النظام المعتمد)، بطاقة رسمية
@@ -118,7 +121,7 @@ export default function PermitPrint({ permit, companyName, printLang }) {
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginTop: PRINT.space }}>
           <PersonSection
             bg={PRINT.sourceBg} dividerColor={PRINT.sourceDivider} minHeight={PERSON_CARD_MIN_HEIGHT}
-            stripColor={PRINT.red}
+            stripColor={PRINT.red} lang={sourceLang}
             title="بيانات المصدر / Issuer Data"
             employeeId={permit.source.employeeId}
             fullName={permit.source.fullName}
@@ -131,7 +134,7 @@ export default function PermitPrint({ permit, companyName, printLang }) {
           />
           <PersonSection
             bg={PRINT.receiverBg} dividerColor={PRINT.receiverDivider} minHeight={PERSON_CARD_MIN_HEIGHT}
-            stripColor={PRINT.yellow}
+            stripColor={PRINT.yellow} lang={receiverLang}
             title="بيانات المستلم / Receiver Data"
             employeeId={permit.receiver.employeeId}
             fullName={permit.receiver.fullName}
@@ -149,7 +152,7 @@ export default function PermitPrint({ permit, companyName, printLang }) {
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginTop: PRINT.space }}>
           <PersonSection
             bg={PRINT.receiverBg} dividerColor={PRINT.receiverDivider} minHeight={PERSON_CARD_MIN_HEIGHT}
-            stripColor={PRINT.yellow}
+            stripColor={PRINT.yellow} lang={receiverCloseLang}
             title="إغلاق/إلغاء التصريح بواسطة المستلم / Closing or Cancelling by Receiver"
             employeeId={permit.receiver.employeeId}
             fullName={hadHandover ? undefined : closingReceiverName}
@@ -165,7 +168,7 @@ export default function PermitPrint({ permit, companyName, printLang }) {
           />
           <PersonSection
             bg={PRINT.sourceBg} dividerColor={PRINT.sourceDivider} minHeight={PERSON_CARD_MIN_HEIGHT}
-            stripColor={PRINT.red}
+            stripColor={PRINT.red} lang={sourceCloseLang}
             title="إغلاق المصدر النهائي / Final Issuer Close-out"
             employeeId={permit.closingSource.employeeId}
             fullName={permit.closingSource.fullName}
@@ -218,19 +221,19 @@ export default function PermitPrint({ permit, companyName, printLang }) {
           <div style={{ position: 'relative', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
             <div style={{ position: 'absolute', top: 0, bottom: 0, insetInlineStart: '50%', width: 1, background: PRINT.divider }} />
             <ActionConfirmationGroup
-              title="إجراءات المصدر (عند الإصدار)" color={PRINT.red} lockNumber={permit.sourceLockNumber}
+              title="إجراءات المصدر (عند الإصدار)" color={PRINT.red} lockNumber={permit.sourceLockNumber} lang={sourceLang}
               items={actionsByStage('المصدر')} checklistState={permit.checklistState || {}}
             />
             <ActionConfirmationGroup
-              title="إجراءات المستلم (عند الاستلام)" color={PRINT.yellow} lockNumber={permit.receiverLockNumber}
+              title="إجراءات المستلم (عند الاستلام)" color={PRINT.yellow} lockNumber={permit.receiverLockNumber} lang={receiverLang}
               items={actionsByStage('المستلم')} checklistState={permit.checklistState || {}}
             />
             <ActionConfirmationGroup
-              title="إجراءات إغلاق المستلم" color={PRINT.yellow}
+              title="إجراءات إغلاق المستلم" color={PRINT.yellow} lang={receiverCloseLang}
               items={actionsByStage('إغلاق المستلم')} checklistState={permit.checklistState || {}}
             />
             <ActionConfirmationGroup
-              title="إجراءات إغلاق المصدر" color={PRINT.red}
+              title="إجراءات إغلاق المصدر" color={PRINT.red} lang={sourceCloseLang}
               items={actionsByStage('إغلاق المصدر')} checklistState={permit.checklistState || {}}
             />
           </div>
@@ -315,7 +318,7 @@ function PrintPage({ pageNumber, totalPages, permit, companyName, permitTitle, i
  * SafetyChecklistSection (الشاشة الحية): مربّع مرسوم بالكود + علامة ✓ خضراء بدل
  * input[type=checkbox] حي، لأن محركات الالتقاط/الطباعة لا تُظهر accent-color بشكل موثوق.
  */
-function ActionConfirmationGroup({ title, color, items, checklistState, lockNumber }) {
+function ActionConfirmationGroup({ title, color, items, checklistState, lockNumber, lang = 'ar' }) {
   if (!items || items.length === 0) return null;
   return (
     <div style={{ marginTop: 4 }}>
@@ -340,7 +343,7 @@ function ActionConfirmationGroup({ title, color, items, checklistState, lockNumb
               }}>
                 {checked ? '✓' : ''}
               </span>
-              <span>{item.textAr}</span>
+              <span>{lang === 'ar' ? item.textAr : (item.textEn || item.textAr)}</span>
             </div>
           );
         })}
@@ -368,12 +371,12 @@ function DualRow({ a, b }) {
  * وقعنا فيه سابقًا هذه الجلسة وتقرّر تفاديه نهائيًا). نقاط العزل ومفاتيح المصدر تبقى Badges
  * منفصلة أسفل الجدول لأنها قوائم متغيّرة الطول لا تناسب خلية جدول ثابتة.
  */
-function WorkDataSection({ permit }) {
+function WorkDataSection({ permit, lang = 'ar' }) {
   const isolationBadges = splitToBadgeItems(permit.isolationPoints);
   const sourceSwitchBadges = splitToBadgeItems(permit.sourceSwitches);
   const voltageOrTest = permit.permitType === PERMIT_TYPE.PTW
-    ? [t('voltageLevel', 'ar'), permit.voltageLevel]
-    : [t('testType', 'ar'), permit.testType];
+    ? [t('voltageLevel', lang), permit.voltageLevel]
+    : [t('testType', lang), permit.testType];
 
   return (
     <section style={{ marginTop: PRINT.space, minHeight: '72mm', background: PRINT.blueLight, border: '1px solid ' + PRINT.border, boxShadow: PRINT.shadow, borderRadius: PRINT.radius, padding: 12, '--pp-row-divider': PRINT.blueDivider, '--pp-row-bg-even': 'transparent' }}>
@@ -385,17 +388,17 @@ function WorkDataSection({ permit }) {
           <tr><th>البيان</th><th>القيمة</th><th>البيان</th><th>القيمة</th></tr>
         </thead>
         <tbody>
-          <DualRow a={[t('location', 'ar'), permit.location]} b={[t('unit', 'ar'), permit.unit]} />
-          <DualRow a={[t('station', 'ar'), permit.station]} b={[t('feeder', 'ar'), permit.feeder]} />
-          <DualRow a={[t('circuit', 'ar'), permit.circuit]} b={[t('operationalProgramNumber', 'ar'), permit.operationalProgramNumber]} />
-          <DualRow a={voltageOrTest} b={[t('workDuration', 'ar'), computeWorkDurationLabel(permit.source.approvalDateTime, permit.closingSource.closeDateTime)]} />
-          <DualRow a={[t('workDescription', 'ar'), permit.workDescription]} />
+          <DualRow a={[t('location', lang), permit.location]} b={[t('unit', lang), permit.unit]} />
+          <DualRow a={[t('station', lang), permit.station]} b={[t('feeder', lang), permit.feeder]} />
+          <DualRow a={[t('circuit', lang), permit.circuit]} b={[t('operationalProgramNumber', lang), permit.operationalProgramNumber]} />
+          <DualRow a={voltageOrTest} b={[t('workDuration', lang), computeWorkDurationLabel(permit.source.approvalDateTime, permit.closingSource.closeDateTime)]} />
+          <DualRow a={[t('workDescription', lang), permit.workDescription]} />
         </tbody>
       </table>
 
       {(isolationBadges.length > 0 || sourceSwitchBadges.length > 0) && (
         <div style={{ marginTop: 8, paddingTop: 8, borderTop: '1px solid ' + PRINT.divider }}>
-          <BadgeField label={t('isolationPoints', 'ar')} items={isolationBadges} />
+          <BadgeField label={t('isolationPoints', lang)} items={isolationBadges} />
           <BadgeField label="مفاتيح المصدر" items={sourceSwitchBadges} />
         </div>
       )}
@@ -428,15 +431,16 @@ function BadgeField({ label, items }) {
  * يرثهما الجدول الداخلي فقط، بلا أي تأثير على جداول الموقع الحي الأخرى). ارتفاع أدنى موحّد
  * (minHeight) وليس ارتفاعًا مقصوصًا، فلا فقدان بيانات.
  */
-function PersonSection({ bg, dividerColor, minHeight, title, stripColor, employeeId, fullName, mobile, extraRows, dateTime, signature }) {
+function PersonSection({ bg, dividerColor, minHeight, title, stripColor, employeeId, fullName, mobile, extraRows, dateTime, signature, lang = 'ar' }) {
   // العربي عنوان رئيسي والإنجليزي أسفله بخط أصغر - أقرب للنماذج الصناعية الاحترافية.
   const [titleAr, titleEn] = String(title).split(' / ');
   // صف واحد لكل بيان (الاسم/الرقم الوظيفي/الجوال ثم الحقول الإضافية الخاصة بكل بطاقة) -
-  // بدل دمج بيانَين في صف واحد، حسب التوزيع المعتمد.
+  // بدل دمج بيانَين في صف واحد، حسب التوزيع المعتمد. تسميات كل بطاقة بلغة الطرف نفسه التي
+  // اعتمدها فعليًا أثناء تعبئة قسمه (sourceLang/receiverLang/...) - وليست ثابتة على العربية.
   const rows = [];
-  if (fullName) rows.push([t('fullName', 'ar'), fullName]);
-  if (employeeId) rows.push([t('employeeId', 'ar'), employeeId]);
-  if (mobile) rows.push([t('mobile', 'ar'), mobile]);
+  if (fullName) rows.push([t('fullName', lang), fullName]);
+  if (employeeId) rows.push([t('employeeId', lang), employeeId]);
+  if (mobile) rows.push([t('mobile', lang), mobile]);
   (extraRows || []).forEach((row) => rows.push(row));
   const dateLines = formatBilingualDateLines(dateTime);
 
@@ -462,7 +466,7 @@ function PersonSection({ bg, dividerColor, minHeight, title, stripColor, employe
           ))}
           {dateLines && (
             <tr>
-              <td style={{ fontSize: 12, fontWeight: 600, opacity: 0.75 }}>{t('dateTime', 'ar')}</td>
+              <td style={{ fontSize: 12, fontWeight: 600, opacity: 0.75 }}>{t('dateTime', lang)}</td>
               <td style={{ fontSize: 14, fontWeight: 700 }}>
                 {dateLines.gregorian}
                 <span style={{ opacity: 0.7, fontWeight: 500 }}> - {dateLines.hijri}</span>
@@ -470,7 +474,7 @@ function PersonSection({ bg, dividerColor, minHeight, title, stripColor, employe
             </tr>
           )}
           <tr>
-            <td style={{ fontSize: 12, fontWeight: 600, opacity: 0.75 }}>{t('signature', 'ar')}</td>
+            <td style={{ fontSize: 12, fontWeight: 600, opacity: 0.75 }}>{t('signature', lang)}</td>
             <td>
               {signature ? <img src={signature} alt="توقيع" style={{ height: 30 }} /> : '—'}
             </td>

@@ -66,7 +66,9 @@ export default function SafetyChecklistSection({ permitType, stage, checkedMap, 
             </span>
           )}
         </strong>
-        {open && <SectionLanguageToggle lang={lang} onChange={onLangChange} />}
+        {/* زر تبديل اللغة يختفي نهائيًا بعد الإغلاق (forceOpen) - اللغة عندها ثابتة على ما
+            اعتمده الطرف فعليًا أثناء التعبئة، ولا يعود تغييرها متاحًا في العرض النهائي. */}
+        {open && !forceOpen && <SectionLanguageToggle lang={lang} onChange={onLangChange} />}
       </div>
       {open && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 6 }}>
