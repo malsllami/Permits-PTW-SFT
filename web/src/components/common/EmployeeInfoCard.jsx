@@ -81,7 +81,7 @@ function CardValidityField({ label, field, color, expiry, remaining, onSaved }) 
   };
 
   return (
-    <div style={{ background: 'var(--color-surface)', boxShadow: '0 1px 4px rgba(0,0,0,0.1)', borderRadius: 'var(--radius-md)', borderInlineStart: '4px solid ' + color, padding: '10px 12px', flex: '1 1 150px' }}>
+    <div style={{ background: 'var(--color-surface)', boxShadow: '0 1px 4px rgba(0,0,0,0.1)', borderRadius: 'var(--radius-md)', borderInlineStart: '4px solid ' + color, padding: '10px 12px', flex: '0 1 calc(50% - 4px)', minWidth: 0 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div style={{ fontSize: 11, opacity: 0.7, fontWeight: 'bold' }}>{label}</div>
         {!editing && (
@@ -195,8 +195,13 @@ export default function EmployeeInfoCard({ profile }) {
     r === 'مصدر' ? !!current.issuerCardExpiry : !!current.receiverCardExpiry
   );
   const displayRoles = presentRoles.length ? presentRoles : ['مصدر'];
+  // "to left" (وليس درجة زاوية ثابتة مثل 90deg) لأن تدرّجات CSS لا تنعكس تلقائيًا مع
+  // dir:rtl - "90deg" يرسم اللون الأول دومًا عند الحافة اليسرى فعليًا بصرف النظر عن اتجاه
+  // الصفحة، بينما تسميات الأدوار (flex) تنعكس فعليًا مع RTL فيصبح "مصدر" على اليمين دائمًا
+  // (أول عنصر في displayRoles) - "to left" يضمن رسم لون "مصدر" (أول لون بالمصفوفة) فعليًا
+  // عند الحافة اليمنى نفسها التي تُعرَض فيها تسميته، بدل تعارضهما.
   const headerBackground = displayRoles.length > 1
-    ? 'linear-gradient(90deg, ' + displayRoles.map((r) => ROLE_META[r].color).join(', ') + ')'
+    ? 'linear-gradient(to left, ' + displayRoles.map((r) => ROLE_META[r].color).join(', ') + ')'
     : ROLE_META[displayRoles[0]].color;
 
   // كل بطاقات الصلاحية الممكنة - كل واحدة تُصفَّى ذاتيًا (CardValidityField تُعيد null) إن
