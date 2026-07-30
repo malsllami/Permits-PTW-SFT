@@ -8,6 +8,7 @@ import CreatePermitCard from '../../components/source/CreatePermitCard.jsx';
 import StatsCard from '../../components/common/StatsCard.jsx';
 import { useSession } from '../../hooks/useSession.js';
 import { hasRole } from '../../utils/roles.js';
+import { getPermitStatusColor } from '../../utils/permitFormatting.js';
 
 // تسمية "الإجراء المطلوب مني الآن" لكل حالة تصريح، حسب دور الموظف (مصدر/مستلم) - مطابقة
 // لحرفية حالات التصريح الفعلية بالنظام (انظر gas/StatusHelpers.gs).
@@ -137,7 +138,7 @@ export default function SourceHomePage() {
                 onClick={() => navigate('/permit?id=' + item.id)}
                 style={{
                   display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10,
-                  background: '#FAFBFC', border: '1px solid #eef0f3',
+                  background: getPermitStatusColor(item.status, item.type), border: '1px solid #eef0f3',
                   borderRadius: 'var(--radius-md)', padding: '10px 14px', textAlign: 'right', width: '100%'
                 }}
               >

@@ -5,18 +5,11 @@ import AppLayout from '../../components/common/AppLayout.jsx';
 import StickyHeaderTable from '../../components/common/StickyHeaderTable.jsx';
 import { convertArabicDigitsToEnglish } from '../../hooks/useArabicIndicDigits.js';
 import { formatDateTimeShort, combineDateAndTime } from '../../hooks/useHijriGregorianDate.js';
-
-// حالات ما بعد توليد رقم التصريح (بعد اعتماد المصدر) - أي شيء غير هذه المجموعة قبل التوليد.
-const ISSUED_STATUSES = ['نشط', 'بانتظار إغلاق المصدر', 'بانتظار تأكيد الإلغاء من المصدر'];
+import { getPermitStatusColor } from '../../utils/permitFormatting.js';
 
 /** لون خلفية الصف حسب مرحلة التصريح - يسمح بمسح سريع للحالة دون فتح كل تصريح على حدة. */
 function getRowColor(p) {
-  const status = p['حالة التصريح'];
-  if (status === 'مغلق') return '#DFF5E1'; // أخضر فاتح - مكتمل
-  if (status === 'ملغي') return '#F3D6D6'; // أحمر فاتح - ملغي
-  if (ISSUED_STATUSES.indexOf(status) !== -1) return '#FFE3C2'; // برتقالي فاتح - جاري العمل (رقم صادر)
-  // قبل توليد رقم التصريح: تمييز حسب النوع
-  return p['نوع التصريح'] === 'PTW' ? '#FBE0EA' : '#FDF6D8'; // PTW زهري فاتح / SFT أصفر فاتح
+  return getPermitStatusColor(p['حالة التصريح'], p['نوع التصريح']);
 }
 
 export default function MyRecordsPage() {

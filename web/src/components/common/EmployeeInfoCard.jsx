@@ -5,23 +5,26 @@ import { updateMyMobile } from '../../services/employeesService.js';
 import { convertArabicDigitsToEnglish } from '../../hooks/useArabicIndicDigits.js';
 import Icon from './Icon.jsx';
 
-// شريط علوي بلون/اسم كل صلاحية يحملها الموظف - قسم واحد إن كانت صلاحية واحدة (مصدر أو
-// مستلم)، أو قسمان متجاوران بنسبة متساوية إن حمل الموظف الصلاحيتين معًا (قسم 4 بدليل
-// التصميم: موظف واحد قد يكون مصدرًا ومستلمًا في آنٍ واحد).
+// هيدر البطاقة تدرّج لوني واحد متصل (وليس قسمين صلبين متجاورين بخط فاصل حاد) بين ألوان
+// الصلاحيات التي يحملها الموظف فعليًا - أحمر=مصدر دائمًا/أصفر=مستلم دائمًا، يمتزجان تدريجيًا
+// في المنتصف عند ازدواج الصلاحية بدل حد فاصل واضح بينهما.
 const ROLE_META = {
-  'مصدر': { color: 'var(--color-role-source-border)', text: '#fff' },
-  'مستلم': { color: 'var(--color-role-receiver-border)', text: '#5C4400' }
+  'مصدر': { color: '#D9534F', text: '#fff' },
+  'مستلم': { color: '#F0B429', text: '#5C4400' }
 };
 
-function MiniField({ label, value, valueNode }) {
-  return (
-    <div style={{ background: 'var(--color-surface)', boxShadow: '0 1px 4px rgba(0,0,0,0.1)', borderRadius: 'var(--radius-md)', padding: '10px 12px', flex: '1 1 120px' }}>
-      <div style={{ fontSize: 11, opacity: 0.7 }}>{label}</div>
-      <div style={{ fontSize: 'var(--fs-field-value)', fontWeight: 'bold', marginTop: 2 }}>
-        {valueNode || (value || value === 0 ? value : '—')}
-      </div>
-    </div>
-  );
+/**
+ * تلوين "المدة المتبقية" الخاص ببطاقة بيانات الموظف تحديدًا (مختلف عن remainingDaysTone
+ * المستخدَم في بطاقات الأطراف أثناء التصريح نفسه - لكل سياق حدوده الخاصة المعتمَدة): 120
+ * يومًا فأكثر أخضر، 119-60 برتقالي، 59-1 أصفر، صفر فأقل أحمر.
+ */
+function employeeCardTone(days) {
+  const n = Number(days);
+  if (isNaN(n)) return null;
+  if (n >= 120) return { bg: '#DFF5E1', text: '#1B5E20' };
+  if (n >= 60) return { bg: '#FFE8CC', text: '#8A4B00' };
+  if (n >= 1) return { bg: '#FFF3CD', text: '#8D6E00' };
+  return { bg: '#F8D7D7', text: '#B71C1C' };
 }
 
 /** تاريخ الانتهاء ميلادي وهجري معًا (سطران) - وليس نص ISO خام كما يُخزَّن بالشيت. */
@@ -33,6 +36,30 @@ function ExpiryDateValue({ value }) {
       <div>{dateLines.gregorian}</div>
       {dateLines.hijri && <div style={{ fontSize: 12, opacity: 0.75, fontWeight: 500 }}>{dateLines.hijri}</div>}
     </>
+  );
+}
+
+/**
+ * بطاقة صلاحية واحدة (عمل/مصدر/مستلم) - لا تظهر إطلاقًا إن لم يُدخَل تاريخ انتهاء لها فعليًا
+ * في جدول الموظفين (قد يحمل الموظف بطاقة مصدر فقط، أو الاثنتين معًا، أو لا شيء). حدّ جانبي
+ * بلون الصلاحية نفسها (عمل=أزرق النظام/مصدر=أحمر/مستلم=أصفر) للتمييز بين البطاقات عند تعدّدها،
+ * وشارة "المدة المتبقية" بلون منفصل حسب حدّة القرب من الانتهاء (employeeCardTone).
+ */
+function CardValidityField({ label, color, expiry, remaining }) {
+  if (!expiry) return null;
+  const tone = employeeCardTone(remaining);
+  return (
+    <div style={{ background: 'var(--color-surface)', boxShadow: '0 1px 4px rgba(0,0,0,0.1)', borderRadius: 'var(--radius-md)', borderInlineStart: '4px solid ' + color, padding: '10px 12px', flex: '1 1 150px' }}>
+      <div style={{ fontSize: 11, opacity: 0.7, fontWeight: 'bold' }}>{label}</div>
+      <div style={{ fontSize: 'var(--fs-field-value)', fontWeight: 'bold', marginTop: 2 }}>
+        <ExpiryDateValue value={expiry} />
+      </div>
+      {tone && (remaining !== '' && remaining !== undefined && remaining !== null) && (
+        <div style={{ display: 'inline-block', marginTop: 6, background: tone.bg, color: tone.text, borderRadius: 999, padding: '2px 10px', fontSize: 11, fontWeight: 'bold' }}>
+          {remaining > 0 ? 'سارية لمدة ' + remaining + ' يوم' : 'منتهية'}
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -93,10 +120,10 @@ function MobileField({ mobile, onSaved }) {
 }
 
 /**
- * بطاقة بيانات الموظف بالشاشة الرئيسية (قسم 4 بدليل التصميم) - قابلة للطي: مطويّة افتراضيًا
- * (سطر واحد فقط: 👤 الاسم / الرقم الوظيفي) لأن الموظف لا يحتاج رؤية هذه التفاصيل في كل مرة
- * يفتح فيها الصفحة الرئيسية؛ تُفتح فقط بضغطة لعرض الجوال (قابل للتعديل ذاتيًا) وبطاقة
- * الصلاحية الأكثر إلحاحًا. تواريخ انتهاء البطاقات تبقى للاطلاع فقط (تعديلها بيد المدير حصرًا).
+ * بطاقة بيانات الموظف بالشاشة الرئيسية - قابلة للطي (مطويّة افتراضيًا: سطر واحد فقط
+ * 👤 الاسم / الرقم الوظيفي - ثابتان لا يتغيّران أبدًا). عند التوسيع: الجوال (قابل للتعديل
+ * الذاتي)، ثم بطاقة صلاحية مستقلة لكل نوع بطاقة أُدخل له تاريخ انتهاء فعليًا في جدول
+ * الموظفين (عمل/مصدر/مستلم) - قد تظهر واحدة أو أكثر حسب البيانات الفعلية فقط، لا افتراضات.
  */
 export default function EmployeeInfoCard({ profile }) {
   const [open, setOpen] = useState(false);
@@ -106,34 +133,28 @@ export default function EmployeeInfoCard({ profile }) {
 
   const activeRoles = rolesToList(profile.role).filter((r) => ROLE_META[r]);
   const displayRoles = activeRoles.length ? activeRoles : ['مصدر'];
+  // تدرّج لوني واحد متصل بين ألوان الصلاحيات المزدوجة (بدل قسمين صلبين بخط فاصل) - بلون
+  // واحد صرف إن كانت صلاحية واحدة فقط.
+  const headerBackground = displayRoles.length > 1
+    ? 'linear-gradient(90deg, ' + displayRoles.map((r) => ROLE_META[r].color).join(', ') + ')'
+    : ROLE_META[displayRoles[0]].color;
 
-  // بطاقة الصلاحية المعروضة (تاريخ الانتهاء/الأيام المتبقية): عند ازدواج الصلاحية تُعرض
-  // الأكثر إلحاحًا (الأقل أيامًا متبقية) كي لا تختفي تحذيرات قرب الانتهاء خلف بطاقة أخرى.
-  const cardsByRole = {
-    'مصدر': { expiry: profile.issuerCardExpiry, remaining: profile.issuerCardRemainingDays },
-    'مستلم': { expiry: profile.receiverCardExpiry, remaining: profile.receiverCardRemainingDays }
-  };
-  const relevantCards = displayRoles.map((r) => cardsByRole[r]).filter((c) => c && c.expiry);
-  const mostUrgentCard = relevantCards.reduce((best, c) => {
-    if (!best) return c;
-    const a = Number(best.remaining);
-    const b = Number(c.remaining);
-    if (isNaN(b)) return best;
-    if (isNaN(a)) return c;
-    return b < a ? c : best;
-  }, null) || { expiry: profile.workCardExpiry, remaining: profile.workCardRemainingDays };
+  // كل بطاقات الصلاحية الممكنة - كل واحدة تُصفَّى ذاتيًا (CardValidityField تُعيد null) إن
+  // لم يُدخَل لها تاريخ انتهاء فعليًا، فتظهر فقط البطاقات ذات البيانات الحقيقية المدخلة.
+  const cardFields = [
+    { key: 'work', label: 'تاريخ انتهاء بطاقة العمل', color: 'var(--color-primary)', expiry: profile.workCardExpiry, remaining: profile.workCardRemainingDays },
+    { key: 'مصدر', label: 'تاريخ انتهاء بطاقة المصدر', color: ROLE_META['مصدر'].color, expiry: profile.issuerCardExpiry, remaining: profile.issuerCardRemainingDays },
+    { key: 'مستلم', label: 'تاريخ انتهاء بطاقة المستلم', color: ROLE_META['مستلم'].color, expiry: profile.receiverCardExpiry, remaining: profile.receiverCardRemainingDays }
+  ];
 
   return (
     <div className="app-card" style={{ padding: 0, overflow: 'hidden', border: '1px solid #D9DEE6', marginBottom: 16 }}>
-      <div style={{ display: 'flex' }}>
-        {displayRoles.map((r) => {
-          const meta = ROLE_META[r];
-          return (
-            <div key={r} style={{ flex: 1, background: meta.color, color: meta.text, textAlign: 'center', fontSize: 12, fontWeight: 'bold', padding: '6px 0' }}>
-              {r}
-            </div>
-          );
-        })}
+      <div style={{ display: 'flex', background: headerBackground }}>
+        {displayRoles.map((r) => (
+          <div key={r} style={{ flex: 1, color: ROLE_META[r].text, textAlign: 'center', fontSize: 12, fontWeight: 'bold', padding: '6px 0' }}>
+            {r}
+          </div>
+        ))}
       </div>
       <button
         type="button"
@@ -149,8 +170,9 @@ export default function EmployeeInfoCard({ profile }) {
       {open && (
         <div style={{ padding: '0 16px 16px', display: 'flex', flexWrap: 'wrap', columnGap: 8, rowGap: 6 }}>
           <MobileField mobile={currentMobile} onSaved={setMobile} />
-          <MiniField label="تاريخ انتهاء بطاقة السلامة" valueNode={<ExpiryDateValue value={mostUrgentCard.expiry} />} />
-          <MiniField label="سارية لمدة" value={mostUrgentCard.remaining !== '' && mostUrgentCard.remaining !== undefined && mostUrgentCard.remaining !== null ? mostUrgentCard.remaining + ' يوم' : '—'} />
+          {cardFields.map((c) => (
+            <CardValidityField key={c.key} label={c.label} color={c.color} expiry={c.expiry} remaining={c.remaining} />
+          ))}
         </div>
       )}
     </div>
