@@ -139,17 +139,16 @@ export default function AdminEmployeesPage() {
               </div>
             )}
           </div>
-          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap', fontSize: 13, fontWeight: 'bold' }}>
             {WORK_ENTITY_OPTIONS.map((opt) => (
-              <button
-                key={opt}
-                type="button"
-                className={form.workEntity === opt ? 'primary' : 'secondary'}
-                onClick={() => setForm((f) => ({ ...f, workEntity: opt }))}
-                style={{ flex: 1, fontSize: 12 }}
-              >
+              <label key={opt} style={{ display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer' }}>
+                <input
+                  type="checkbox"
+                  checked={form.workEntity === opt}
+                  onChange={() => setForm((f) => ({ ...f, workEntity: f.workEntity === opt ? '' : opt }))}
+                />
                 {opt}
-              </button>
+              </label>
             ))}
           </div>
           <label style={{ fontSize: 11 }}>انتهاء بطاقة العمل<input type="date" value={form.workCardExpiry} onChange={(e) => setForm((f) => ({ ...f, workCardExpiry: e.target.value }))} /></label>
