@@ -237,7 +237,8 @@ export default function PermitDocumentViewer({ creationId, accessMode, currentUs
     }
   };
 
-  /** نص رسالة المشاركة عبر واتساب - الرمز السري لا يُدرج فيه أبدًا (يُبلَّغ شفهيًا فقط). */
+  /** نص رسالة المشاركة عبر واتساب - الرمز السري وحده لا يُدرج فيه أبدًا (يُبلَّغ شفهيًا فقط)؛
+      رقم البرنامج التشغيلي ونقاط العزل يُدرجان ضمن الرسالة كجزء من بيانات العمل. */
   function buildWhatsAppMessage() {
     const lines = [
       (companyName || '') + ' - قسم التصاريح',
@@ -251,6 +252,8 @@ export default function PermitDocumentViewer({ creationId, accessMode, currentUs
       'المحطة: ' + (permit.station || '—'),
       'المغذي: ' + (permit.feeder || '—'),
       'وصف العمل: ' + (permit.workDescription || '—'),
+      'رقم البرنامج التشغيلي: ' + (permit.operationalProgramNumber || '—'),
+      'نقاط العزل: ' + (permit.isolationPoints || '—'),
       '',
       'بيانات المصدر:',
       'الرقم الوظيفي: ' + (permit.source.employeeId || '—'),
@@ -708,7 +711,7 @@ export default function PermitDocumentViewer({ creationId, accessMode, currentUs
                 <SharePanel
                   permitLink={permit.permitLink}
                   secretCode={sentSecretCode}
-                  secretNote="لا تُرسل هذا الرمز ولا رقم البرنامج التشغيلي ضمن رسالة المشاركة - أبلغهما للمستلم الفعلي شفهيًا (هاتفيًا) فقط، وليس ضمن الرابط نفسه."
+                  secretNote="لا تُرسل هذا الرمز ضمن رسالة المشاركة - أبلغه للمستلم الفعلي شفهيًا (هاتفيًا) فقط، وليس ضمن الرابط نفسه."
                   onCopy={copyPermitLink}
                   copied={linkCopied}
                 />
@@ -924,7 +927,7 @@ export default function PermitDocumentViewer({ creationId, accessMode, currentUs
                   <div style={{ fontSize: 12, fontWeight: 'bold', marginBottom: 4 }}>{t('cancellationReason', receiverCloseLang)}</div>
                   <input type="text" style={{ width: '100%' }} value={cancelReason} onChange={(e) => setCancelReason(normalizeMixedInput(e.target.value))} />
                   <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
-                    <button disabled={busy || !cancelReason || !signature} onClick={() => handleReceiverClose('CANCEL')} style={{ background: 'var(--color-error)', color: '#fff' }}>{t('confirmCancellation', receiverCloseLang)}</button>
+                    <button disabled={busy || !cancelReason || !signature || !receiverCloseChecklistComplete} onClick={() => handleReceiverClose('CANCEL')} style={{ background: 'var(--color-error)', color: '#fff' }}>{t('confirmCancellation', receiverCloseLang)}</button>
                     <button className="secondary" disabled={busy} onClick={() => setShowCancelReason(false)}>{t('goBack', receiverCloseLang)}</button>
                   </div>
                 </div>

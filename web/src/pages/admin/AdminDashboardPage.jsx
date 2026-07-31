@@ -99,12 +99,21 @@ export default function AdminDashboardPage() {
 
   if (!stats) return <div style={{ padding: 20 }}>جارٍ تحميل الإحصائيات...</div>;
 
+  // قيم افتراضية آمنة للحقول الحديثة تحديدًا - تحمي من عدم تطابق شكل البيانات (مثال: كاش
+  // خلفي قديم لم تنته صلاحيته بعد بشكل النسخة السابقة من الحقول) بدل تعطّل الصفحة بالكامل.
+  const permitsByType = stats.permitsByType || {
+    PTW: { total: 0, closed: 0, cancelled: 0, inProgress: 0 },
+    SFT: { total: 0, closed: 0, cancelled: 0, inProgress: 0 }
+  };
+  const activePresence = stats.activePresence || { sources: 0, receivers: 0 };
+  const expiredCards = stats.expiredCards || { sourcesCount: 0, sourceNames: [], receiversCount: 0, receiverNames: [] };
+
   const todayLabel = new Intl.DateTimeFormat('ar', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }).format(new Date());
 
   // أكثر أنواع العمليات اليوم - من نفس بيانات "آخر العمليات" الحقيقية (بلا أي رقم وهمي)،
   // مُصفّاة لليوم الحالي فقط ومُرتَّبة تنازليًا حسب التكرار.
   const todayStr = new Date().toDateString();
-  const todayOps = stats.recentOperations.filter((op) => {
+  const todayOps = (stats.recentOperations || []).filter((op) => {
     const d = new Date(op['التاريخ والوقت']);
     return !isNaN(d.getTime()) && d.toDateString() === todayStr;
   });
@@ -115,7 +124,7 @@ export default function AdminDashboardPage() {
   });
   const topOps = Object.keys(opCounts).map((k) => ({ label: k, count: opCounts[k] })).sort((a, b) => b.count - a.count).slice(0, 6);
 
-  const expiredTotal = stats.expiredCards.sourcesCount + stats.expiredCards.receiversCount;
+  const expiredTotal = expiredCards.sourcesCount + expiredCards.receiversCount;
 
   return (
     <div style={{ background: DARK.bg, color: DARK.text, padding: 16, borderRadius: 14 }}>
@@ -153,14 +162,14 @@ export default function AdminDashboardPage() {
       {/* المتواجدون - مصدر/مستلم يحملون حاليًا مسؤولية فعلية على تصريح جارٍ */}
       <CollapsibleSection title="المتواجدون الآن" icon="groups" defaultOpen>
         <div style={{ fontSize: 11, color: DARK.muted, marginBottom: 10 }}>موظفون يحملون حاليًا مسؤولية فعلية على تصريح لم يُغلق بعد</div>
-        <RoleSplitBar sourceCount={stats.activePresence.sources} receiverCount={stats.activePresence.receivers} />
+        <RoleSplitBar sourceCount={activePresence.sources} receiverCount={activePresence.receivers} />
       </CollapsibleSection>
 
       {/* التصاريح حسب النوع */}
       <CollapsibleSection title="التصاريح حسب النوع" icon="bar_chart" defaultOpen>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 10 }}>
-          <TypeBreakdownCard label="PTW" data={stats.permitsByType.PTW} />
-          <TypeBreakdownCard label="SFT" data={stats.permitsByType.SFT} />
+          <TypeBreakdownCard label="PTW" data={permitsByType.PTW} />
+          <TypeBreakdownCard label="SFT" data={permitsByType.SFT} />
         </div>
       </CollapsibleSection>
 
@@ -168,16 +177,16 @@ export default function AdminDashboardPage() {
       <CollapsibleSection title="بطاقات سلامة منتهية" icon="warning">
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 10 }}>
           <div>
-            <div style={{ fontSize: 12, fontWeight: 'bold', color: DARK.red, marginBottom: 6 }}>مصدر ({stats.expiredCards.sourcesCount})</div>
-            {stats.expiredCards.sourceNames.length === 0 && <div style={{ fontSize: 12, color: DARK.muted }}>لا يوجد.</div>}
-            {stats.expiredCards.sourceNames.map((n, i) => (
+            <div style={{ fontSize: 12, fontWeight: 'bold', color: DARK.red, marginBottom: 6 }}>مصدر ({expiredCards.sourcesCount})</div>
+            {expiredCards.sourceNames.length === 0 && <div style={{ fontSize: 12, color: DARK.muted }}>لا يوجد.</div>}
+            {expiredCards.sourceNames.map((n, i) => (
               <div key={i} style={{ fontSize: 12, padding: '4px 0', borderBottom: '1px solid ' + DARK.border }}>{n}</div>
             ))}
           </div>
           <div>
-            <div style={{ fontSize: 12, fontWeight: 'bold', color: DARK.yellow, marginBottom: 6 }}>مستلم ({stats.expiredCards.receiversCount})</div>
-            {stats.expiredCards.receiverNames.length === 0 && <div style={{ fontSize: 12, color: DARK.muted }}>لا يوجد.</div>}
-            {stats.expiredCards.receiverNames.map((n, i) => (
+            <div style={{ fontSize: 12, fontWeight: 'bold', color: DARK.yellow, marginBottom: 6 }}>مستلم ({expiredCards.receiversCount})</div>
+            {expiredCards.receiverNames.length === 0 && <div style={{ fontSize: 12, color: DARK.muted }}>لا يوجد.</div>}
+            {expiredCards.receiverNames.map((n, i) => (
               <div key={i} style={{ fontSize: 12, padding: '4px 0', borderBottom: '1px solid ' + DARK.border }}>{n}</div>
             ))}
           </div>
@@ -193,7 +202,7 @@ export default function AdminDashboardPage() {
               <tr><th>العملية</th><th>الاسم</th><th>الدور</th><th>التاريخ والوقت</th></tr>
             </thead>
             <tbody>
-              {stats.recentOperations.map((op, idx) => (
+              {(stats.recentOperations || []).map((op, idx) => (
                 <tr key={idx}>
                   <td>{op['العملية']}</td>
                   <td>{op['الاسم']}</td>

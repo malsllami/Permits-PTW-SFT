@@ -1,6 +1,7 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App.jsx';
+import ErrorBoundary from './components/common/ErrorBoundary.jsx';
 // خطوط مستضافة ذاتيًا (بدون رابط خارجي لضمان عملها بدون إنترنت مستقر) - Inter للأرقام/الإنجليزي، IBM Plex Sans Arabic للعربي
 import '@fontsource/inter/400.css';
 import '@fontsource/inter/700.css';
@@ -13,6 +14,8 @@ import './styles/rtl.css';
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
-    <App />
+    <ErrorBoundary>
+      <App />
+    </ErrorBoundary>
   </React.StrictMode>
 );
