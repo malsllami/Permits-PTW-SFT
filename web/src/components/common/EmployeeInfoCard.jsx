@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { formatBilingualDateLines } from '../../hooks/useHijriGregorianDate.js';
 import { updateMyMobile, updateMyCardExpiry } from '../../services/employeesService.js';
-import { convertArabicDigitsToEnglish } from '../../hooks/useArabicIndicDigits.js';
+import SaudiMobileInput from './SaudiMobileInput.jsx';
 import Icon from './Icon.jsx';
 
 // هيدر البطاقة تدرّج لوني واحد متصل (وليس قسمين صلبين متجاورين بخط فاصل حاد) بين ألوان
@@ -144,7 +144,7 @@ function MobileField({ mobile, onSaved }) {
     setSaving(true);
     setError('');
     try {
-      const updated = await updateMyMobile(convertArabicDigitsToEnglish(value));
+      const updated = await updateMyMobile(value);
       onSaved(updated);
       setEditing(false);
     } catch (e) {
@@ -158,10 +158,11 @@ function MobileField({ mobile, onSaved }) {
     <div style={{ background: 'var(--color-surface)', boxShadow: '0 1px 4px rgba(0,0,0,0.1)', borderRadius: 'var(--radius-md)', padding: '10px 12px', flex: '1 1 200px' }}>
       <div style={{ fontSize: 11, opacity: 0.7, marginBottom: 4 }}>تعديل الجوال</div>
       <div style={{ display: 'flex', gap: 6 }}>
-        <input
+        <SaudiMobileInput
           value={value}
-          onChange={(e) => setValue(convertArabicDigitsToEnglish(e.target.value))}
-          style={{ flex: 1, minHeight: 36, fontSize: 13, padding: '4px 8px' }}
+          onChange={setValue}
+          style={{ flex: 1 }}
+          inputStyle={{ minHeight: 36, fontSize: 13, padding: '4px 8px' }}
         />
         <button type="button" disabled={saving} onClick={handleSave} style={{ background: 'var(--color-primary)', color: '#fff', minHeight: 36, fontSize: 12, padding: '0 12px' }}>
           {saving ? '...' : 'حفظ'}

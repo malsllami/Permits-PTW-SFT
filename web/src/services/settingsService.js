@@ -4,6 +4,7 @@ export const getPublicSettings = () => callApi('getPublicSettings', {});
 export const getAllSettings = () => callApi('getAllSettings', {});
 export const updateSettingValue = (group, key, valueAr, valueEn) =>
   callApi('updateSettingValue', { group, key, valueAr, valueEn });
+export const addDepartmentOption = (nameAr) => callApi('addDepartmentOption', { nameAr });
 
 export const getSafetyItems = (permitType, stage) => callApi('getSafetyItems', { permitType, stage });
 export const getSafetyInstructions = (permitType) => callApi('getSafetyInstructions', { permitType });

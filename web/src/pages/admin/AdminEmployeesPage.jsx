@@ -3,6 +3,11 @@ import { listEmployees, createEmployee, updateEmployee, disableEmployee, deleteE
 import StickyHeaderTable from '../../components/common/StickyHeaderTable.jsx';
 import { convertArabicDigitsToEnglish, sanitizeDigitsOnly } from '../../hooks/useArabicIndicDigits.js';
 import { rolesToList } from '../../utils/roles.js';
+import SaudiMobileInput from '../../components/common/SaudiMobileInput.jsx';
+import { getAllSettings, addDepartmentOption } from '../../services/settingsService.js';
+
+// جهة العمل: خياران فقط (زران للاختيار الحصري، وليس نصًا حرًا) - بلا خيارات أخرى.
+const WORK_ENTITY_OPTIONS = ['الشركة السعودية للطاقة', 'مقاول'];
 
 const emptyForm = {
   employeeId: '', fullName: '', mobile: '', email: '', role: 'مصدر', department: '', workEntity: '',
@@ -19,9 +24,24 @@ export default function AdminEmployeesPage() {
   const [form, setForm] = useState(emptyForm);
   const [editingId, setEditingId] = useState(null);
   const [error, setError] = useState('');
+  const [departments, setDepartments] = useState([]);
+  const [addingDepartment, setAddingDepartment] = useState(false);
+  const [newDepartment, setNewDepartment] = useState('');
 
   const load = () => listEmployees().then(setEmployees).catch(() => {});
-  useEffect(() => { load(); }, []);
+  const loadDepartments = () =>
+    getAllSettings().then((rows) => setDepartments(rows.filter((s) => s.group === 'الأقسام').map((s) => s.valueAr))).catch(() => {});
+  useEffect(() => { load(); loadDepartments(); }, []);
+
+  const handleAddDepartment = async () => {
+    const name = newDepartment.trim();
+    if (!name) return;
+    await addDepartmentOption(name);
+    setNewDepartment('');
+    setAddingDepartment(false);
+    setForm((f) => ({ ...f, department: name }));
+    loadDepartments();
+  };
 
   useEffect(() => {
     if (query) searchEmployees(query).then(setEmployees).catch(() => {});
@@ -72,7 +92,7 @@ export default function AdminEmployeesPage() {
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 8 }}>
           <input placeholder="الرقم الوظيفي" value={form.employeeId} disabled={!!editingId} onChange={(e) => setForm((f) => ({ ...f, employeeId: sanitizeDigitsOnly(e.target.value) }))} />
           <input placeholder="الاسم بالكامل" value={form.fullName} onChange={(e) => setForm((f) => ({ ...f, fullName: convertArabicDigitsToEnglish(e.target.value) }))} />
-          <input placeholder="رقم الجوال" value={form.mobile} onChange={(e) => setForm((f) => ({ ...f, mobile: sanitizeDigitsOnly(e.target.value) }))} />
+          <SaudiMobileInput value={form.mobile} onChange={(mobile) => setForm((f) => ({ ...f, mobile }))} />
           <input placeholder="البريد الإلكتروني" value={form.email} onChange={(e) => setForm((f) => ({ ...f, email: convertArabicDigitsToEnglish(e.target.value) }))} />
           <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap', fontSize: 13, fontWeight: 'bold' }}>
             {ROLE_OPTIONS.map((r) => (
@@ -90,8 +110,48 @@ export default function AdminEmployeesPage() {
               </label>
             ))}
           </div>
-          <input placeholder="القسم" value={form.department} onChange={(e) => setForm((f) => ({ ...f, department: convertArabicDigitsToEnglish(e.target.value) }))} />
-          <input placeholder="جهة العمل" value={form.workEntity} onChange={(e) => setForm((f) => ({ ...f, workEntity: convertArabicDigitsToEnglish(e.target.value) }))} />
+          <div>
+            {!addingDepartment ? (
+              <select
+                value={departments.includes(form.department) || !form.department ? form.department : '__other__'}
+                onChange={(e) => {
+                  if (e.target.value === '__other__') { setAddingDepartment(true); setNewDepartment(''); }
+                  else setForm((f) => ({ ...f, department: e.target.value }));
+                }}
+              >
+                <option value="">القسم</option>
+                {form.department && !departments.includes(form.department) && (
+                  <option value={form.department}>{form.department}</option>
+                )}
+                {departments.map((d) => <option key={d} value={d}>{d}</option>)}
+                <option value="__other__">أخرى...</option>
+              </select>
+            ) : (
+              <div style={{ display: 'flex', gap: 4 }}>
+                <input
+                  placeholder="اسم القسم الجديد"
+                  value={newDepartment}
+                  onChange={(e) => setNewDepartment(convertArabicDigitsToEnglish(e.target.value))}
+                  style={{ flex: 1 }}
+                />
+                <button type="button" onClick={handleAddDepartment} style={{ fontSize: 11 }}>إضافة</button>
+                <button type="button" onClick={() => setAddingDepartment(false)} style={{ fontSize: 11 }}>إلغاء</button>
+              </div>
+            )}
+          </div>
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+            {WORK_ENTITY_OPTIONS.map((opt) => (
+              <button
+                key={opt}
+                type="button"
+                className={form.workEntity === opt ? 'primary' : 'secondary'}
+                onClick={() => setForm((f) => ({ ...f, workEntity: opt }))}
+                style={{ flex: 1, fontSize: 12 }}
+              >
+                {opt}
+              </button>
+            ))}
+          </div>
           <label style={{ fontSize: 11 }}>انتهاء بطاقة العمل<input type="date" value={form.workCardExpiry} onChange={(e) => setForm((f) => ({ ...f, workCardExpiry: e.target.value }))} /></label>
           <label style={{ fontSize: 11 }}>انتهاء بطاقة المصدر<input type="date" value={form.issuerCardExpiry} onChange={(e) => setForm((f) => ({ ...f, issuerCardExpiry: e.target.value }))} /></label>
           <label style={{ fontSize: 11 }}>انتهاء بطاقة المستلم<input type="date" value={form.receiverCardExpiry} onChange={(e) => setForm((f) => ({ ...f, receiverCardExpiry: e.target.value }))} /></label>
