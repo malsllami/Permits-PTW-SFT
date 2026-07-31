@@ -1,10 +1,12 @@
 import React from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useSession } from '../../hooks/useSession.js';
 
 export default function AppLayout({ title, children }) {
   const { employee, logout } = useSession();
   const navigate = useNavigate();
+  const location = useLocation();
+  const isInAdmin = location.pathname.startsWith('/admin');
 
   const handleLogout = () => {
     logout();
@@ -49,10 +51,16 @@ export default function AppLayout({ title, children }) {
           </div>
           {/* لا قوائم إطلاقًا للموظف العادي (مصدر/مستلم) - شاشة "الرئيسية" الموحّدة هي الصفحة
               الوحيدة له (بطاقة بياناته + بطاقات الإنشاء + بطاقات تصاريحه)، فلا حاجة لأي رابط
-              تنقّل آخر. المدير وحده يحتفظ برابط "لوحة المدير" للوصول لأدوات الإدارة المنفصلة. */}
+              تنقّل آخر. المدير وحده يحتفظ برابط تنقّل، لكنه يتبدّل حسب مكانه الحالي: "لوحة
+              المدير" وهو خارجها، أو "الرئيسية" وهو داخلها بالفعل - بدل تكرار رابط يوصله لنفس
+              الصفحة التي هو فيها أصلًا. */}
           {employee && employee.isAdmin && (
             <nav style={{ display: 'flex', gap: 10, fontSize: 13 }}>
-              <Link to="/admin" className="header-link" style={{ whiteSpace: 'nowrap' }}>لوحة المدير</Link>
+              {isInAdmin ? (
+                <Link to="/source/home" className="header-link" style={{ whiteSpace: 'nowrap' }}>الرئيسية</Link>
+              ) : (
+                <Link to="/admin" className="header-link" style={{ whiteSpace: 'nowrap' }}>لوحة المدير</Link>
+              )}
             </nav>
           )}
         </div>
